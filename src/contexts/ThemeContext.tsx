@@ -36,6 +36,8 @@ function resolveTheme(theme: Theme): 'light' | 'dark' {
  */
 function applyTheme(resolvedTheme: 'light' | 'dark') {
   const html = document.documentElement;
+  
+  // Add/remove dark class
   if (resolvedTheme === 'dark') {
     html.classList.add('dark');
   } else {
@@ -44,6 +46,13 @@ function applyTheme(resolvedTheme: 'light' | 'dark') {
   
   // Set data attribute for alternative styling
   html.setAttribute('data-theme', resolvedTheme);
+  
+  // Log for debugging
+  console.log('[applyTheme]', { 
+    resolvedTheme, 
+    hasDarkClass: html.classList.contains('dark'),
+    dataTheme: html.getAttribute('data-theme')
+  });
 }
 
 interface ThemeProviderProps {
@@ -63,13 +72,21 @@ export function ThemeProvider({
 
   // Initialize theme from localStorage and system preference
   useEffect(() => {
+    // Get saved theme or use default
     const savedTheme = localStorage.getItem(storageKey) as Theme | null;
     const initialTheme = (savedTheme || defaultTheme) as Theme;
     
+    console.log('[ThemeProvider init]', { savedTheme, defaultTheme, initialTheme });
+    
+    // Update state
     setThemeState(initialTheme);
+    
+    // Resolve and apply theme
     const resolved = resolveTheme(initialTheme);
     setResolvedTheme(resolved);
     applyTheme(resolved);
+    
+    // Mark as mounted
     setMounted(true);
   }, [defaultTheme, storageKey]);
 
@@ -78,6 +95,7 @@ export function ThemeProvider({
     const mediaQuery = window.matchMedia(MEDIA_QUERY);
     
     const handleChange = () => {
+      console.log('[mediaQuery change]', { theme, isSys: theme === 'system' });
       if (theme === 'system') {
         const newResolved = getSystemTheme();
         setResolvedTheme(newResolved);
@@ -91,20 +109,23 @@ export function ThemeProvider({
 
   // Apply theme changes
   useEffect(() => {
-    if (!mounted) return;
-
     const resolved = resolveTheme(theme);
+    console.log('[ThemeProvider effect]', { theme, resolved, mounted });
     setResolvedTheme(resolved);
     applyTheme(resolved);
-  }, [theme, mounted]);
+  }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
+    console.log('[setTheme called]', newTheme);
     setThemeState(newTheme);
     localStorage.setItem(storageKey, newTheme);
   };
 
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : theme === 'dark' ? 'system' : 'light');
+    // Toggle between light and dark, ignoring system preference
+    const next = theme === 'light' ? 'dark' : 'light';
+    console.log('[toggleTheme]', { current: theme, next });
+    setTheme(next);
   };
 
   const value: ThemeContextType = {

@@ -14,7 +14,7 @@ import { DataPreview } from '@/components/DataPreview';
 import { ColumnMappingPanel } from '@/components/ColumnMappingPanel';
 import { SqlConfigPanel } from '@/components/SqlConfigPanel';
 import { SqlPreview } from '@/components/SqlPreview';
-import { ThemeSelector } from '@/components/ThemeSelector';
+import { IconThemeToggle } from '@/components/IconThemeToggle';
 import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
 import { generateSQL } from '@/lib/sql-generator';
 import type { 
@@ -161,10 +161,8 @@ export default function Index() {
               </Button>
             )}
 
-            {/* Theme Selector */}
-            <div className="border-l pl-4">
-              <ThemeSelector />
-            </div>
+            {/* Theme Toggle */}
+            <IconThemeToggle />
           </div>
         </div>
       </header>

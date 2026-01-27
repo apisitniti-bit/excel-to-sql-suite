@@ -2,6 +2,7 @@ import { useTheme, type Theme } from '@/contexts/ThemeContext';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
+  DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -22,24 +23,22 @@ export function ThemeSelector() {
     { value: 'system', label: 'System', icon: <Laptop className="h-4 w-4" /> },
   ];
 
-  const currentThemeLabel = themeOptions.find(opt => opt.value === theme)?.label || 'Theme';
-  
   // Icon for the trigger button based on resolved theme
   const TriggerIcon = resolvedTheme === 'dark' ? Moon : Sun;
 
   return (
     <DropdownMenu>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="relative h-9 w-9"
-        asChild
-      >
-        <button>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-9 w-9"
+          title="Toggle theme"
+        >
           <TriggerIcon className="h-4 w-4 transition-all duration-300" />
           <span className="sr-only">Toggle theme</span>
-        </button>
-      </Button>
+        </Button>
+      </DropdownMenuTrigger>
       
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
@@ -50,7 +49,6 @@ export function ThemeSelector() {
             key={option.value}
             onClick={() => setTheme(option.value)}
             className="flex items-center gap-2 cursor-pointer"
-            data-state={theme === option.value ? 'checked' : 'unchecked'}
           >
             <span className="flex items-center justify-center w-4 h-4">
               {option.icon}
