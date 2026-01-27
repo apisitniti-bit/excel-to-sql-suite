@@ -73,7 +73,17 @@ export function generateSQL(
   }
   
   const activeMappings = mappings.filter(m => m.pgColumn);
-  const columns = activeMappings.map(m => `"${m.pgColumn}"`).join(', ');
+  const pkMapping = activeMappings.find(m => m.isPrimaryKey);
+  
+  // Validate UPDATE mode requires primary key
+  if (config.mode === 'UPDATE' && !pkMapping) {
+    errors.push({
+      row: 0,
+      column: '',
+      message: 'UPDATE mode requires a primary key column to be selected',
+      severity: 'error',
+    });
+  }
   
   const batches: string[][] = [];
   let currentBatch: string[] = [];
@@ -100,18 +110,20 @@ export function generateSQL(
     }
     
     if (config.mode === 'INSERT') {
-      currentBatch.push(`  (${values.join(', ')})`);
+      // Simple VALUES format: INSERT INTO table VALUES (...)
+      currentBatch.push(`INSERT INTO "${config.tableName}" VALUES (${values.join(', ')});`);
     } else if (config.mode === 'UPDATE') {
-      const pkMapping = activeMappings.find(m => m.isPrimaryKey);
       if (pkMapping) {
-        const pkIndex = data.headers.indexOf(pkMapping.excelColumn);
-        const pkValue = formatValue(row[pkIndex], pkMapping, config);
+        const pkIndex = activeMappings.indexOf(pkMapping);
+        const pkValue = values[pkIndex];
         const setClauses = activeMappings
           .filter(m => !m.isPrimaryKey)
-          .map((m, i) => `"${m.pgColumn}" = ${values[activeMappings.indexOf(m)]}`)
+          .map((m) => `"${m.pgColumn}" = ${values[activeMappings.indexOf(m)]}`)
           .join(', ');
         
-        currentBatch.push(`UPDATE "${config.tableName}" SET ${setClauses} WHERE "${pkMapping.pgColumn}" = ${pkValue};`);
+        if (setClauses) {
+          currentBatch.push(`UPDATE "${config.tableName}" SET ${setClauses} WHERE "${pkMapping.pgColumn}" = ${pkValue};`);
+        }
       }
     } else if (config.mode === 'UPSERT') {
       currentBatch.push(`  (${values.join(', ')})`);
@@ -130,14 +142,14 @@ export function generateSQL(
   // Generate batch statements
   for (const batch of batches) {
     if (config.mode === 'INSERT') {
-      statements.push(`INSERT INTO "${config.tableName}" (${columns})`);
-      statements.push('VALUES');
-      statements.push(batch.join(',\n') + ';');
+      // Each INSERT is its own statement
+      statements.push(...batch);
       statements.push('');
     } else if (config.mode === 'UPDATE') {
       statements.push(...batch);
       statements.push('');
     } else if (config.mode === 'UPSERT') {
+      const columns = activeMappings.map(m => `"${m.pgColumn}"`).join(', ');
       const conflictCols = config.conflictKeys.map(k => `"${k}"`).join(', ');
       const updateCols = activeMappings
         .filter(m => !config.conflictKeys.includes(m.pgColumn))
