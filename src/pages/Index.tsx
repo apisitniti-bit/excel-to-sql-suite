@@ -17,6 +17,8 @@ import { SqlPreview } from '@/components/SqlPreview';
 import { IconThemeToggle } from '@/components/IconThemeToggle';
 import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
 import { generateSQL } from '@/lib/sql-generator';
+import { applyDefaults, getDefaultSqlConfig, updateConfigWithPrimaryKey } from '@/lib/defaults';
+import { validateExcelData, hasValidationErrors } from '@/lib/validation';
 import type { 
   ExcelData, 
   ExcelColumn, 
@@ -27,20 +29,7 @@ import type {
 } from '@/types/converter';
 import { toast } from 'sonner';
 
-const DEFAULT_CONFIG: SqlConfig = {
-  tableName: 'my_table',
-  mode: 'INSERT',
-  primaryKey: [],
-  conflictKeys: [],
-  options: {
-    ignoreNullValues: false,
-    trimStrings: true,
-    castTypes: false,
-    batchSize: 100,
-    wrapInTransaction: true,
-    onConflictAction: 'DO UPDATE',
-  },
-};
+const DEFAULT_CONFIG: SqlConfig = getDefaultSqlConfig('my_table');
 
 export default function Index() {
   const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
@@ -59,18 +48,26 @@ export default function Index() {
       setExcelData(data);
       
       const analyzedColumns = analyzeColumns(data);
-      setColumns(analyzedColumns);
       
-      // Initialize mappings
-      const initialMappings: ColumnMapping[] = analyzedColumns.map(col => ({
-        excelColumn: col.name,
-        pgColumn: col.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
-        dataType: col.detectedType,
-        isPrimaryKey: false,
-        isNullable: true,
-        isUnique: false,
-      }));
-      setMappings(initialMappings);
+      // Apply defaults: all columns TEXT, first column as PK
+      const { columns: defaultedColumns, mappings: defaultMappings } = applyDefaults(data, analyzedColumns);
+      setColumns(defaultedColumns);
+      setMappings(defaultMappings);
+      
+      // Validate data (check for duplicate PKs, etc)
+      const validationErrors = validateExcelData(data, defaultMappings);
+      setErrors(validationErrors);
+      
+      if (validationErrors.length > 0) {
+        const errorCount = validationErrors.filter(e => e.severity === 'error').length;
+        const hasDupError = validationErrors.some(e => e.message.includes('Duplicated Key'));
+        
+        if (hasDupError) {
+          toast.error('Duplicated Key - Fix primary key conflicts before proceeding');
+        } else {
+          toast.error(`Found ${errorCount} validation error(s)`);
+        }
+      }
       
       setStep('mapping');
       toast.success(`Loaded ${data.totalRows.toLocaleString()} rows from ${data.fileName}`);
@@ -94,7 +91,27 @@ export default function Index() {
   const handleGenerateSQL = useCallback(() => {
     if (!excelData) return;
     
-    const result = generateSQL(excelData, mappings, config);
+    // Update config with primary key from mappings
+    const updatedConfig = updateConfigWithPrimaryKey(config, mappings);
+    setConfig(updatedConfig);
+    
+    // Validate data before generation
+    const validationErrors = validateExcelData(excelData, mappings);
+    
+    // Check for blocking errors
+    if (hasValidationErrors(validationErrors)) {
+      setErrors(validationErrors);
+      const duplicateKeyError = validationErrors.some(e => e.message.includes('Duplicated Key'));
+      
+      if (duplicateKeyError) {
+        toast.error('Cannot generate SQL: Duplicated Key values detected. Please fix primary key conflicts first.');
+      } else {
+        toast.error(`Cannot generate SQL: ${validationErrors.filter(e => e.severity === 'error').length} validation error(s) found`);
+      }
+      return;
+    }
+    
+    const result = generateSQL(excelData, mappings, updatedConfig);
     setSql(result.sql);
     setErrors(result.errors);
     setStep('preview');

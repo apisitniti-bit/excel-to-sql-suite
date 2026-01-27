@@ -85,6 +85,7 @@ export function generateSQL(
     });
   }
   
+  const columns = activeMappings.map(m => `"${m.pgColumn}"`).join(', ');
   const batches: string[][] = [];
   let currentBatch: string[] = [];
   
@@ -110,8 +111,8 @@ export function generateSQL(
     }
     
     if (config.mode === 'INSERT') {
-      // Simple VALUES format: INSERT INTO table VALUES (...)
-      currentBatch.push(`INSERT INTO "${config.tableName}" VALUES (${values.join(', ')});`);
+      // VALUES format: (col1, col2, ...)
+      currentBatch.push(`(${values.join(', ')})`);
     } else if (config.mode === 'UPDATE') {
       if (pkMapping) {
         const pkIndex = activeMappings.indexOf(pkMapping);
@@ -142,14 +143,16 @@ export function generateSQL(
   // Generate batch statements
   for (const batch of batches) {
     if (config.mode === 'INSERT') {
-      // Each INSERT is its own statement
-      statements.push(...batch);
+      // INSERT INTO table (cols) VALUES (row1), (row2), ... (rowN);
+      statements.push(`INSERT INTO "${config.tableName}" (${columns})`);
+      statements.push('VALUES');
+      statements.push(batch.join(',\n'));
+      statements.push(';');
       statements.push('');
     } else if (config.mode === 'UPDATE') {
       statements.push(...batch);
       statements.push('');
     } else if (config.mode === 'UPSERT') {
-      const columns = activeMappings.map(m => `"${m.pgColumn}"`).join(', ');
       const conflictCols = config.conflictKeys.map(k => `"${k}"`).join(', ');
       const updateCols = activeMappings
         .filter(m => !config.conflictKeys.includes(m.pgColumn))
