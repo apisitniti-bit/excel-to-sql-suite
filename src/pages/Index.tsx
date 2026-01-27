@@ -14,6 +14,7 @@ import { DataPreview } from '@/components/DataPreview';
 import { ColumnMappingPanel } from '@/components/ColumnMappingPanel';
 import { SqlConfigPanel } from '@/components/SqlConfigPanel';
 import { SqlPreview } from '@/components/SqlPreview';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
 import { generateSQL } from '@/lib/sql-generator';
 import type { 
@@ -159,6 +160,11 @@ export default function Index() {
                 New File
               </Button>
             )}
+
+            {/* Theme Selector */}
+            <div className="border-l pl-4">
+              <ThemeSelector />
+            </div>
           </div>
         </div>
       </header>
