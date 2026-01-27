@@ -35,10 +35,10 @@ export function ThemeSelector() {
         className="relative h-9 w-9"
         asChild
       >
-        <div>
+        <button>
           <TriggerIcon className="h-4 w-4 transition-all duration-300" />
           <span className="sr-only">Toggle theme</span>
-        </div>
+        </button>
       </Button>
       
       <DropdownMenuContent align="end">

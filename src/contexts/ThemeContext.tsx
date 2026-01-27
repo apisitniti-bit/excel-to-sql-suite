@@ -114,11 +114,6 @@ export function ThemeProvider({
     toggleTheme,
   };
 
-  // Prevent rendering until mounted to avoid hydration mismatch
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
