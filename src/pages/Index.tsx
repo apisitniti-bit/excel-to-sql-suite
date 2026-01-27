@@ -1,14 +1,270 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { Database, ArrowRight, ArrowLeft, FileSpreadsheet, Zap } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FileUpload } from '@/components/FileUpload';
+import { DataPreview } from '@/components/DataPreview';
+import { ColumnMappingPanel } from '@/components/ColumnMappingPanel';
+import { SqlConfigPanel } from '@/components/SqlConfigPanel';
+import { SqlPreview } from '@/components/SqlPreview';
+import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
+import { generateSQL } from '@/lib/sql-generator';
+import type { 
+  ExcelData, 
+  ExcelColumn, 
+  ColumnMapping, 
+  SqlConfig, 
+  SqlMode,
+  ValidationError 
+} from '@/types/converter';
+import { toast } from 'sonner';
 
-const Index = () => {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
-    </div>
-  );
+const DEFAULT_CONFIG: SqlConfig = {
+  tableName: 'my_table',
+  mode: 'INSERT',
+  primaryKey: [],
+  conflictKeys: [],
+  options: {
+    ignoreNullValues: false,
+    trimStrings: true,
+    castTypes: false,
+    batchSize: 100,
+    wrapInTransaction: true,
+    onConflictAction: 'DO UPDATE',
+  },
 };
 
-export default Index;
+export default function Index() {
+  const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
+  const [isLoading, setIsLoading] = useState(false);
+  const [excelData, setExcelData] = useState<ExcelData | null>(null);
+  const [columns, setColumns] = useState<ExcelColumn[]>([]);
+  const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+  const [config, setConfig] = useState<SqlConfig>(DEFAULT_CONFIG);
+  const [sql, setSql] = useState<string>('');
+  const [errors, setErrors] = useState<ValidationError[]>([]);
+
+  const handleFileSelect = useCallback(async (file: File) => {
+    setIsLoading(true);
+    try {
+      const data = await parseExcelFile(file);
+      setExcelData(data);
+      
+      const analyzedColumns = analyzeColumns(data);
+      setColumns(analyzedColumns);
+      
+      // Initialize mappings
+      const initialMappings: ColumnMapping[] = analyzedColumns.map(col => ({
+        excelColumn: col.name,
+        pgColumn: col.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+        dataType: col.detectedType,
+        isPrimaryKey: false,
+        isNullable: true,
+        isUnique: false,
+      }));
+      setMappings(initialMappings);
+      
+      setStep('mapping');
+      toast.success(`Loaded ${data.totalRows.toLocaleString()} rows from ${data.fileName}`);
+    } catch (error) {
+      toast.error('Failed to parse Excel file');
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Auto-generate SQL when mappings or config change
+  useEffect(() => {
+    if (excelData && mappings.length > 0) {
+      // Update config with primary keys from mappings
+      const primaryKeys = mappings.filter(m => m.isPrimaryKey).map(m => m.pgColumn);
+      setConfig(c => ({ ...c, primaryKey: primaryKeys, conflictKeys: primaryKeys }));
+    }
+  }, [mappings, excelData]);
+
+  const handleGenerateSQL = useCallback(() => {
+    if (!excelData) return;
+    
+    const result = generateSQL(excelData, mappings, config);
+    setSql(result.sql);
+    setErrors(result.errors);
+    setStep('preview');
+    
+    if (result.errors.length === 0) {
+      toast.success('SQL generated successfully!');
+    } else {
+      toast.warning(`Generated with ${result.errors.length} validation issues`);
+    }
+  }, [excelData, mappings, config]);
+
+  const handleModeChange = (mode: SqlMode) => {
+    setConfig(c => ({ ...c, mode }));
+  };
+
+  const handleReset = () => {
+    setStep('upload');
+    setExcelData(null);
+    setColumns([]);
+    setMappings([]);
+    setConfig(DEFAULT_CONFIG);
+    setSql('');
+    setErrors([]);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header */}
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container flex items-center justify-between h-14 px-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Database className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="font-semibold text-sm">Excel2SQL</h1>
+              <p className="text-xs text-muted-foreground">PostgreSQL Converter</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {excelData && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-xs">
+                  <FileSpreadsheet className="w-3 h-3 mr-1" />
+                  {excelData.fileName}
+                </Badge>
+                <Select value={config.mode} onValueChange={handleModeChange}>
+                  <SelectTrigger className="w-32 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="INSERT">INSERT</SelectItem>
+                    <SelectItem value="UPDATE">UPDATE</SelectItem>
+                    <SelectItem value="UPSERT">UPSERT</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {step !== 'upload' && (
+              <Button variant="ghost" size="sm" onClick={handleReset}>
+                New File
+              </Button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 container px-4 py-6">
+        {step === 'upload' && (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] animate-slide-in">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold mb-2">Convert Excel to PostgreSQL</h2>
+              <p className="text-muted-foreground max-w-md">
+                Upload your Excel or CSV file to generate INSERT, UPDATE, or UPSERT SQL statements
+              </p>
+            </div>
+            <FileUpload onFileSelect={handleFileSelect} isLoading={isLoading} />
+            
+            <div className="mt-12 grid grid-cols-3 gap-8 max-w-2xl">
+              {[
+                { icon: '📤', title: 'Upload', desc: 'Drag & drop Excel/CSV' },
+                { icon: '🔗', title: 'Map', desc: 'Match columns to schema' },
+                { icon: '⚡', title: 'Export', desc: 'Download .sql file' },
+              ].map((item, i) => (
+                <div key={i} className="text-center">
+                  <div className="text-2xl mb-2">{item.icon}</div>
+                  <div className="font-medium text-sm">{item.title}</div>
+                  <div className="text-xs text-muted-foreground">{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {step === 'mapping' && excelData && (
+          <div className="space-y-4 animate-slide-in">
+            {/* Step indicator */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Badge variant="default">Step 2</Badge>
+                <span className="text-sm font-medium">Configure Column Mapping</span>
+              </div>
+              <Button onClick={handleGenerateSQL}>
+                <Zap className="w-4 h-4 mr-2" />
+                Generate SQL
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)]">
+              {/* Excel Preview */}
+              <div className="lg:col-span-5 h-full">
+                <DataPreview data={excelData} />
+              </div>
+              
+              {/* Mapping Panel */}
+              <div className="lg:col-span-4 h-full">
+                <ColumnMappingPanel
+                  columns={columns}
+                  mappings={mappings}
+                  onMappingsChange={setMappings}
+                />
+              </div>
+              
+              {/* Config Panel */}
+              <div className="lg:col-span-3 h-full">
+                <SqlConfigPanel
+                  config={config}
+                  mappings={mappings}
+                  onConfigChange={setConfig}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 'preview' && excelData && (
+          <div className="space-y-4 animate-slide-in">
+            {/* Step indicator */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setStep('mapping')}>
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Back
+                </Button>
+                <Badge variant="default">Step 3</Badge>
+                <span className="text-sm font-medium">Review & Export</span>
+              </div>
+              <Badge variant="secondary" className="font-mono">
+                {config.mode} • {excelData.totalRows.toLocaleString()} rows
+              </Badge>
+            </div>
+
+            <div className="h-[calc(100vh-200px)]">
+              <SqlPreview 
+                sql={sql} 
+                errors={errors} 
+                fileName={excelData.fileName}
+              />
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t py-3 text-center text-xs text-muted-foreground">
+        <p>Excel2SQL Converter • SQL injection safe • UTF-8 encoded</p>
+      </footer>
+    </div>
+  );
+}
