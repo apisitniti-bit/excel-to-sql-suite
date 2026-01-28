@@ -31,6 +31,10 @@ export interface ColumnMapping {
   isNullable: boolean;
   isUnique: boolean;
   defaultValue?: string;
+  useLookup?: boolean;
+  lookupSourceColumn?: string;
+  lookupTargetValue?: string;
+  lookupDefaultValue?: string;
 }
 
 export interface SqlConfig {
