@@ -1,17 +1,19 @@
+import type { DatabaseType } from '@/lib/adapters';
+
 export type SqlMode = 'INSERT' | 'UPDATE' | 'UPSERT';
 
-export type PostgresDataType = 
-  | 'TEXT' 
-  | 'VARCHAR' 
-  | 'INTEGER' 
-  | 'BIGINT' 
-  | 'DECIMAL' 
-  | 'BOOLEAN' 
-  | 'DATE' 
-  | 'TIMESTAMP' 
-  | 'TIMESTAMPTZ' 
-  | 'JSON' 
-  | 'JSONB' 
+export type PostgresDataType =
+  | 'TEXT'
+  | 'VARCHAR'
+  | 'INTEGER'
+  | 'BIGINT'
+  | 'DECIMAL'
+  | 'BOOLEAN'
+  | 'DATE'
+  | 'TIMESTAMP'
+  | 'TIMESTAMPTZ'
+  | 'JSON'
+  | 'JSONB'
   | 'UUID';
 
 export interface ExcelColumn {
@@ -34,6 +36,7 @@ export interface ColumnMapping {
 export interface SqlConfig {
   tableName: string;
   mode: SqlMode;
+  database: DatabaseType;
   primaryKey: string[];
   conflictKeys: string[];
   options: {

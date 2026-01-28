@@ -6,6 +6,7 @@ import type { ExcelData, ExcelColumn, ColumnMapping, SqlConfig, ValidationError 
 export const DEFAULT_CONFIG: Partial<SqlConfig> = {
   tableName: 'my_table',
   mode: 'INSERT',
+  database: 'postgresql',
   options: {
     ignoreNullValues: false,
     trimStrings: true,
@@ -59,6 +60,7 @@ export function getDefaultSqlConfig(tableName: string = 'my_table'): SqlConfig {
   return {
     tableName,
     mode: 'INSERT',
+    database: 'postgresql',
     primaryKey: [], // Will be set based on primary key column
     conflictKeys: [],
     options: {

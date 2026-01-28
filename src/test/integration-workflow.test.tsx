@@ -47,7 +47,7 @@ describe('Full Workflow Integration', () => {
       const config = getDefaultSqlConfig('users');
       const { sql } = generateSQL(excelData, mappings, config);
 
-      expect(sql).toContain('INSERT INTO "users"');
+      expect(sql).toContain('INSERT INTO users');
       expect(sql).toContain('VALUES');
       expect(sql).toMatch(/VALUES[\s\S]*\('U001'/); // Has data
       expect(sql).toContain('COMMIT');
@@ -158,10 +158,10 @@ describe('Full Workflow Integration', () => {
       ];
 
       const { mappings } = applyDefaults(excelData, mockColumns);
-      
+
       // Make the second column NOT NULL
       mappings[1].isNullable = false;
-      
+
       const errors = validateExcelData(excelData, mappings);
 
       // Should detect multiple types of errors

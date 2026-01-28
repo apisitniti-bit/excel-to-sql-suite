@@ -1,4 +1,4 @@
-import { Settings, Database, Key, Layers, Wrench } from 'lucide-react';
+import { Settings, Database, Key, Layers, Wrench, Server } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { SqlConfig, SqlMode, ColumnMapping } from '@/types/converter';
+import type { DatabaseType } from '@/lib/adapters';
 
 interface SqlConfigPanelProps {
   config: SqlConfig;
@@ -36,8 +37,28 @@ export function SqlConfigPanel({ config, mappings, onConfigChange }: SqlConfigPa
         <Settings className="w-4 h-4 text-primary" />
         <span>SQL Configuration</span>
       </div>
-      
+
       <div className="flex-1 overflow-auto scrollbar-thin p-4 space-y-6">
+        {/* Database Type */}
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2 text-xs font-medium">
+            <Server className="w-3 h-3" />
+            Database Type
+          </Label>
+          <Select
+            value={config.database || 'postgresql'}
+            onValueChange={(value) => updateConfig({ database: value as DatabaseType })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="postgresql">PostgreSQL</SelectItem>
+              <SelectItem value="mysql">MySQL</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Table Name */}
         <div className="space-y-2">
           <Label className="flex items-center gap-2 text-xs font-medium">
@@ -100,8 +121,8 @@ export function SqlConfigPanel({ config, mappings, onConfigChange }: SqlConfigPa
             <Label className="text-xs font-medium">Conflict Keys</Label>
             <Select
               value={config.options.onConflictAction}
-              onValueChange={(value) => updateOptions({ 
-                onConflictAction: value as 'DO NOTHING' | 'DO UPDATE' 
+              onValueChange={(value) => updateOptions({
+                onConflictAction: value as 'DO NOTHING' | 'DO UPDATE'
               })}
             >
               <SelectTrigger>
@@ -121,7 +142,7 @@ export function SqlConfigPanel({ config, mappings, onConfigChange }: SqlConfigPa
             <Wrench className="w-3 h-3" />
             Options
           </Label>
-          
+
           <div className="space-y-3 pl-1">
             <div className="flex items-center justify-between">
               <Label className="text-xs cursor-pointer">Trim strings</Label>
@@ -130,7 +151,7 @@ export function SqlConfigPanel({ config, mappings, onConfigChange }: SqlConfigPa
                 onCheckedChange={(checked) => updateOptions({ trimStrings: checked })}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <Label className="text-xs cursor-pointer">Cast types</Label>
               <Switch
@@ -138,7 +159,7 @@ export function SqlConfigPanel({ config, mappings, onConfigChange }: SqlConfigPa
                 onCheckedChange={(checked) => updateOptions({ castTypes: checked })}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <Label className="text-xs cursor-pointer">Wrap in transaction</Label>
               <Switch
@@ -146,7 +167,7 @@ export function SqlConfigPanel({ config, mappings, onConfigChange }: SqlConfigPa
                 onCheckedChange={(checked) => updateOptions({ wrapInTransaction: checked })}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <Label className="text-xs cursor-pointer">Ignore null values</Label>
               <Switch
