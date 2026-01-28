@@ -18,8 +18,8 @@ export function getBangkokTime(): Date {
 }
 
 /**
- * Format time in Bangkok timezone: YYYY-MM-DD HHmmss (GMT+7)
- * Example: 2026-01-28 062637
+ * Format time in Bangkok timezone: YYYY-MM-DD HH:MM:SS (GMT+7)
+ * Example: 2026-01-28 06:26:37
  */
 export function formatBangkokTime(date?: Date): string {
   const bangkokTime = date || getBangkokTime();
@@ -31,11 +31,11 @@ export function formatBangkokTime(date?: Date): string {
   const minutes = String(bangkokTime.getUTCMinutes()).padStart(2, '0');
   const seconds = String(bangkokTime.getUTCSeconds()).padStart(2, '0');
   
-  return `${year}-${month}-${day} ${hours}${minutes}${seconds}`;
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 }
 
 /**
- * Format time in Bangkok timezone: YYYY-MM-DD HH:mm:ss (GMT+7)
+ * Format time in Bangkok timezone: YYYY-MM-DD HH:MM:SS (GMT+7)
  * Example: 2026-01-28 06:26:37
  */
 export function formatBangkokTimeReadable(date?: Date): string {
