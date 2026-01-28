@@ -8,8 +8,8 @@ function escapeString(value: string, trim: boolean): string {
 }
 
 function formatValue(
-  value: any, 
-  mapping: ColumnMapping, 
+  value: any,
+  mapping: ColumnMapping,
   config: SqlConfig
 ): string {
   if (value === null || value === undefined || value === '') {
@@ -18,43 +18,43 @@ function formatValue(
     }
     return mapping.defaultValue ? `'${mapping.defaultValue}'` : 'NULL';
   }
-  
+
   const strValue = String(value);
-  
+
   switch (mapping.dataType) {
     case 'INTEGER':
     case 'BIGINT':
-      return config.options.castTypes 
-        ? `${parseInt(strValue, 10)}::${mapping.dataType}` 
+      return config.options.castTypes
+        ? `${parseInt(strValue, 10)}::${mapping.dataType}`
         : String(parseInt(strValue, 10));
-    
+
     case 'DECIMAL':
-      return config.options.castTypes 
-        ? `${parseFloat(strValue)}::DECIMAL` 
+      return config.options.castTypes
+        ? `${parseFloat(strValue)}::DECIMAL`
         : String(parseFloat(strValue));
-    
+
     case 'BOOLEAN':
       const boolVal = ['true', '1', 'yes'].includes(strValue.toLowerCase());
       return boolVal ? 'TRUE' : 'FALSE';
-    
+
     case 'JSON':
     case 'JSONB':
       return config.options.castTypes
         ? `${escapeString(strValue, config.options.trimStrings)}::${mapping.dataType}`
         : escapeString(strValue, config.options.trimStrings);
-    
+
     case 'UUID':
       return config.options.castTypes
         ? `${escapeString(strValue, config.options.trimStrings)}::UUID`
         : escapeString(strValue, config.options.trimStrings);
-    
+
     case 'DATE':
     case 'TIMESTAMP':
     case 'TIMESTAMPTZ':
       return config.options.castTypes
         ? `${escapeString(strValue, config.options.trimStrings)}::${mapping.dataType}`
         : escapeString(strValue, config.options.trimStrings);
-    
+
     default:
       return escapeString(strValue, config.options.trimStrings);
   }
@@ -67,15 +67,15 @@ export function generateSQL(
 ): { sql: string; errors: ValidationError[] } {
   const errors: ValidationError[] = [];
   const statements: string[] = [];
-  
+
   if (config.options.wrapInTransaction) {
     statements.push('BEGIN;');
     statements.push('');
   }
-  
+
   const activeMappings = mappings.filter(m => m.pgColumn);
   const pkMapping = activeMappings.find(m => m.isPrimaryKey);
-  
+
   // Validate UPDATE mode requires primary key
   if (config.mode === 'UPDATE' && !pkMapping) {
     errors.push({
@@ -85,19 +85,19 @@ export function generateSQL(
       severity: 'error',
     });
   }
-  
-  const columns = activeMappings.map(m => `"${m.pgColumn}"`).join(', ');
+
+  const columns = activeMappings.map(m => m.pgColumn).join(', ');
   const batches: string[][] = [];
   let currentBatch: string[] = [];
-  
+
   for (let rowIndex = 0; rowIndex < data.rows.length; rowIndex++) {
     const row = data.rows[rowIndex];
     const values: string[] = [];
-    
+
     for (const mapping of activeMappings) {
       const colIndex = data.headers.indexOf(mapping.excelColumn);
       const value = colIndex >= 0 ? row[colIndex] : null;
-      
+
       // Validation
       if (!mapping.isNullable && (value === null || value === undefined || value === '')) {
         errors.push({
@@ -107,10 +107,10 @@ export function generateSQL(
           severity: 'error',
         });
       }
-      
+
       values.push(formatValue(value, mapping, config));
     }
-    
+
     if (config.mode === 'INSERT') {
       // VALUES format: (col1, col2, ...)
       currentBatch.push(`(${values.join(', ')})`);
@@ -120,32 +120,32 @@ export function generateSQL(
         const pkValue = values[pkIndex];
         const setClauses = activeMappings
           .filter(m => !m.isPrimaryKey)
-          .map((m) => `"${m.pgColumn}" = ${values[activeMappings.indexOf(m)]}`)
+          .map((m) => `${m.pgColumn} = ${values[activeMappings.indexOf(m)]}`)
           .join(', ');
-        
+
         if (setClauses) {
-          currentBatch.push(`UPDATE "${config.tableName}" SET ${setClauses} WHERE "${pkMapping.pgColumn}" = ${pkValue};`);
+          currentBatch.push(`UPDATE ${config.tableName} SET ${setClauses} WHERE ${pkMapping.pgColumn} = ${pkValue};`);
         }
       }
     } else if (config.mode === 'UPSERT') {
       currentBatch.push(`  (${values.join(', ')})`);
     }
-    
+
     if (currentBatch.length >= config.options.batchSize) {
       batches.push([...currentBatch]);
       currentBatch = [];
     }
   }
-  
+
   if (currentBatch.length > 0) {
     batches.push(currentBatch);
   }
-  
+
   // Generate batch statements
   for (const batch of batches) {
     if (config.mode === 'INSERT') {
       // INSERT INTO table (cols) VALUES (row1), (row2), ... (rowN);
-      statements.push(`INSERT INTO "${config.tableName}" (${columns})`);
+      statements.push(`INSERT INTO ${config.tableName} (${columns})`);
       statements.push('VALUES');
       statements.push(batch.join(',\n'));
       statements.push(';');
@@ -154,17 +154,17 @@ export function generateSQL(
       statements.push(...batch);
       statements.push('');
     } else if (config.mode === 'UPSERT') {
-      const conflictCols = config.conflictKeys.map(k => `"${k}"`).join(', ');
+      const conflictCols = config.conflictKeys.join(', ');
       const updateCols = activeMappings
         .filter(m => !config.conflictKeys.includes(m.pgColumn))
-        .map(m => `"${m.pgColumn}" = EXCLUDED."${m.pgColumn}"`)
+        .map(m => `${m.pgColumn} = EXCLUDED.${m.pgColumn}`)
         .join(', ');
-      
-      statements.push(`INSERT INTO "${config.tableName}" (${columns})`);
+
+      statements.push(`INSERT INTO ${config.tableName} (${columns})`);
       statements.push('VALUES');
       statements.push(batch.join(',\n'));
       statements.push(`ON CONFLICT (${conflictCols})`);
-      
+
       if (config.options.onConflictAction === 'DO UPDATE' && updateCols) {
         statements.push(`DO UPDATE SET ${updateCols};`);
       } else {
@@ -173,11 +173,11 @@ export function generateSQL(
       statements.push('');
     }
   }
-  
+
   if (config.options.wrapInTransaction) {
     statements.push('COMMIT;');
   }
-  
+
   // Add standardized header comment with Bangkok timezone
   const header = [
     `-- Generated by Excel-HelpMe`,
@@ -188,7 +188,7 @@ export function generateSQL(
     `-- Generated: ${getBangkokTimestamp()}`,
     '',
   ];
-  
+
   return {
     sql: [...header, ...statements].join('\n'),
     errors,
