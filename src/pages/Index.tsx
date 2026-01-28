@@ -185,7 +185,7 @@ export default function Index() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 container px-4 py-6">
+      <main className="flex-1 container px-4 py-6 overflow-auto">
         {step === 'upload' && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] animate-slide-in">
             <div className="text-center mb-8">
@@ -227,7 +227,7 @@ export default function Index() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-220px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-280px)]">
               {/* Excel Preview */}
               <div className="lg:col-span-5 h-full">
                 <DataPreview data={excelData} />
@@ -271,7 +271,7 @@ export default function Index() {
               </Badge>
             </div>
 
-            <div className="h-[calc(100vh-200px)]">
+            <div className="h-[calc(100vh-280px)]">
               <SqlPreview 
                 sql={sql} 
                 errors={errors} 
@@ -283,8 +283,8 @@ export default function Index() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t py-3 text-center text-xs text-muted-foreground">
-        <p>Excel2SQL Converter • SQL injection safe • UTF-8 encoded</p>
+      <footer className="border-t bg-card/50 backdrop-blur-sm py-4 text-center text-xs text-muted-foreground shrink-0">
+        <p className="m-0">Excel-HelpMe Converter • SQL injection safe • UTF-8 encoded</p>
       </footer>
     </div>
   );
