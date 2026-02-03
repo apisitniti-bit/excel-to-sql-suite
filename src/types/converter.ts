@@ -1,80 +1,48 @@
-import type { DatabaseType } from '@/lib/adapters';
+/**
+ * Re-export core types for backwards compatibility
+ * UI components should migrate to using @/core/types directly
+ * @deprecated Use @/core/types instead
+ */
 
-export type SqlMode = 'INSERT' | 'UPDATE' | 'UPSERT';
+export type { SqlMode } from '@/core/types';
+export type { PostgresDataType } from '@/core/types';
+export type { ExcelColumn } from '@/core/types';
+export type { ColumnMapping } from '@/core/types';
+export type { SqlConfig } from '@/core/types';
+export type { ValidationError } from '@/core/types';
 
-export type PostgresDataType =
-  | 'TEXT'
-  | 'VARCHAR'
-  | 'INTEGER'
-  | 'BIGINT'
-  | 'DECIMAL'
-  | 'BOOLEAN'
-  | 'DATE'
-  | 'TIMESTAMP'
-  | 'TIMESTAMPTZ'
-  | 'JSON'
-  | 'JSONB'
-  | 'UUID';
+import type { SqlConfig as CoreSqlConfig, ColumnMapping as CoreColumnMapping, ValidationError as CoreValidationError } from '@/core/types';
 
-export interface ExcelColumn {
-  name: string;
-  index: number;
-  sampleValues: string[];
-  detectedType: PostgresDataType;
+/**
+ * @deprecated Use ValidationResult from @/core/types
+ */
+export interface ValidationResult {
+  valid: boolean;
+  errors: CoreValidationError[];
+  warnings: CoreValidationError[];
 }
 
-export interface ColumnMapping {
-  excelColumn: string;
-  pgColumn: string;
-  dataType: PostgresDataType;
-  isPrimaryKey: boolean;
-  isNullable: boolean;
-  isUnique: boolean;
-  defaultValue?: string;
-  useLookup?: boolean;
-  lookupSourceColumn?: string;
-  lookupTargetValue?: string;
-  lookupDefaultValue?: string;
-}
-
-export interface SqlConfig {
-  tableName: string;
-  mode: SqlMode;
-  database: DatabaseType;
-  primaryKey: string[];
-  conflictKeys: string[];
-  options: {
-    ignoreNullValues: boolean;
-    trimStrings: boolean;
-    castTypes: boolean;
-    batchSize: number;
-    wrapInTransaction: boolean;
-    onConflictAction: 'DO NOTHING' | 'DO UPDATE';
-  };
-}
-
-export interface ExcelData {
-  headers: string[];
-  rows: any[][];
-  totalRows: number;
-  fileName: string;
-  sheetName: string;
-  sheets: string[];
-}
-
-export interface ValidationError {
-  row: number;
-  column: string;
-  message: string;
-  severity: 'error' | 'warning';
-}
-
+/**
+ * @deprecated Use ConversionState from @/core/types
+ */
 export interface ConversionState {
   step: 'upload' | 'mapping' | 'preview';
-  excelData: ExcelData | null;
-  columns: ExcelColumn[];
-  mappings: ColumnMapping[];
-  config: SqlConfig;
+  excelData: {
+    headers: string[];
+    rows: unknown[][];
+    totalRows: number;
+    fileName: string;
+    sheetName: string;
+    sheets: string[];
+  } | null;
+  columns: {
+    name: string;
+    index: number;
+    sampleValues: string[];
+    detectedType: import('@/core/types').PostgresDataType;
+  }[];
+  mappings: CoreColumnMapping[];
+  config: CoreSqlConfig;
   sql: string;
-  errors: ValidationError[];
+  errors: CoreValidationError[];
 }
