@@ -109,7 +109,10 @@ export function applyVLookups(
 interface LookupProcessor {
   config: VLookupConfig;
   outputIndex: number;
+  targetStartRow?: number;
+  allowOverwrite: boolean;
   stats: LookupStats;
+  shouldProcessRow: (rowIndex: number) => boolean;
   resolve: (
     row: unknown[],
     rowIndex: number,
@@ -125,9 +128,11 @@ function createLookupProcessor(
 ): LookupProcessor {
   const sourceIndex = getColumnIndex(sheet, config.sourceColumn);
   const targetColumn = config.targetColumn ?? config.sourceColumn;
-
-  // Output column index: existing column or new column at end
-  const outputIndex = outputHeaders.findIndex(h => h === targetColumn);
+  const { outputIndex, targetStartRow } = resolveOutputTarget(
+    config,
+    sheet,
+    outputHeaders
+  );
 
   const stats: LookupStats = {
     lookupId: config.id,
@@ -145,8 +150,36 @@ function createLookupProcessor(
   return {
     config,
     outputIndex,
+    targetStartRow,
+    allowOverwrite: !!config.allowOverwrite,
     stats,
+    shouldProcessRow: (rowIndex: number) => targetStartRow === undefined || rowIndex >= targetStartRow,
     resolve: (row, rowIndex, errors) => {
+      if (targetStartRow !== undefined && rowIndex < targetStartRow) {
+        return {
+          value: row[outputIndex] ?? null,
+          matched: false,
+          usedDefault: false,
+          nullInput: true,
+        };
+      }
+
+      if (!config.allowOverwrite && row[outputIndex] !== null && row[outputIndex] !== undefined && row[outputIndex] !== '') {
+        errors.push({
+          lookupId: config.id,
+          type: 'overwrite',
+          message: `Target cell already has a value in column "${outputHeaders[outputIndex]}"`,
+          row: rowIndex + 2,
+          value: row[outputIndex],
+        });
+        return {
+          value: row[outputIndex],
+          matched: false,
+          usedDefault: false,
+          nullInput: true,
+        };
+      }
+
       const inputValue = row[sourceIndex];
 
       if (inputValue === null || inputValue === undefined || inputValue === '') {
@@ -262,6 +295,15 @@ function buildOutputHeaders(headers: string[], lookups: VLookupConfig[]): string
   const output = [...headers];
 
   for (const lookup of lookups) {
+    if (lookup.targetCell) {
+      const parsed = parseTargetCell(lookup.targetCell);
+      if (!parsed) {
+        continue;
+      }
+      ensureColumnIndex(output, parsed.columnIndex);
+      continue;
+    }
+
     const targetColumn = lookup.targetColumn ?? lookup.sourceColumn;
     if (!output.includes(targetColumn)) {
       output.push(targetColumn);
@@ -281,6 +323,10 @@ function classifyLookupError(error: unknown, lookupId: string): LookupError {
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
 
+  if (normalized.includes('invalid target cell')) {
+    return { lookupId, type: 'invalid_target_cell', message };
+  }
+
   if (normalized.includes('column') && normalized.includes('not found')) {
     return { lookupId, type: 'missing_column', message };
   }
@@ -290,4 +336,57 @@ function classifyLookupError(error: unknown, lookupId: string): LookupError {
   }
 
   return { lookupId, type: 'parse_error', message };
+}
+
+function resolveOutputTarget(
+  config: VLookupConfig,
+  sheet: ExcelSheet,
+  outputHeaders: string[]
+): { outputIndex: number; targetStartRow?: number } {
+  if (!config.targetCell) {
+    const targetColumn = config.targetColumn ?? config.sourceColumn;
+    const outputIndex = outputHeaders.findIndex(h => h === targetColumn);
+    if (outputIndex >= 0) return { outputIndex };
+    outputHeaders.push(targetColumn);
+    return { outputIndex: outputHeaders.length - 1 };
+  }
+
+  const parsed = parseTargetCell(config.targetCell);
+  if (!parsed) {
+    throw new Error(`Invalid target cell: ${config.targetCell}`);
+  }
+
+  const headerRowIndex = 1;
+  if (parsed.row < headerRowIndex + 1) {
+    throw new Error(`Invalid target cell: ${config.targetCell} (row must be >= 2)`);
+  }
+
+  ensureColumnIndex(outputHeaders, parsed.columnIndex);
+
+  return {
+    outputIndex: parsed.columnIndex,
+    targetStartRow: parsed.row - (headerRowIndex + 1),
+  };
+}
+
+function parseTargetCell(cell: string): { columnIndex: number; row: number } | null {
+  const normalized = cell.trim().toUpperCase();
+  const match = /^([A-Z]+)(\d+)$/.exec(normalized);
+  if (!match) return null;
+
+  const [, columnLetters, rowRaw] = match;
+  const row = Number(rowRaw);
+  if (!Number.isFinite(row) || row <= 0) return null;
+
+  let columnIndex = 0;
+  for (let i = 0; i < columnLetters.length; i++) {
+    columnIndex = columnIndex * 26 + (columnLetters.charCodeAt(i) - 64);
+  }
+  return { columnIndex: columnIndex - 1, row };
+}
+
+function ensureColumnIndex(headers: string[], columnIndex: number): void {
+  while (headers.length <= columnIndex) {
+    headers.push(`Column_${headers.length + 1}`);
+  }
 }

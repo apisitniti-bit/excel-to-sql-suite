@@ -24,6 +24,12 @@ export {
   type MultiSheetParseOptions,
 } from './excel/multi-sheet';
 
+// Excel export
+export {
+  buildWorkbookBuffer,
+  type ExportWorkbookOptions,
+} from './excel/export';
+
 // Schema inference
 export {
   inferColumnType,

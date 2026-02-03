@@ -19,6 +19,7 @@ import { VLookupHelper } from '@/components/VLookupHelper';
 import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
 import { generateSQL } from '@/lib/sql-generator';
 import { applyVLookupToMultiSheet } from '@/lib/vlookup';
+import { downloadExcel } from '@/lib/excel-export';
 import { applyDefaults, getDefaultSqlConfig, updateConfigWithPrimaryKey } from '@/lib/defaults';
 import { validateExcelData, hasValidationErrors } from '@/lib/validation';
 import type { 
@@ -201,6 +202,29 @@ export default function Index() {
     }
   }, [excelData, mappings, config, lookupSet]);
 
+  const handleExportExcel = useCallback(() => {
+    if (!excelData) return;
+
+    const dataToExport = previewData || excelData;
+    if (!dataToExport.sheetData || dataToExport.sheetData.length === 0) {
+      toast.error('No sheet data available to export.');
+      return;
+    }
+
+    const baseName = dataToExport.fileName.replace(/\.[^/.]+$/, '');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+    downloadExcel(
+      dataToExport.sheetData.map(sheet => ({
+        name: sheet.name,
+        headers: sheet.headers,
+        rows: sheet.rows,
+        rowCount: sheet.rowCount,
+      })),
+      { fileName: `${baseName}_vlookup_${timestamp}.xlsx`, includeHeaders: true }
+    );
+  }, [excelData, previewData]);
+
   const handleModeChange = (mode: SqlMode) => {
     setConfig(c => ({ ...c, mode }));
   };
@@ -359,9 +383,14 @@ export default function Index() {
                 <Badge variant="default">Step 3</Badge>
                 <span className="text-sm font-medium">Review & Export</span>
               </div>
-              <Badge variant="secondary" className="font-mono">
-                {config.mode} • {excelData.totalRows.toLocaleString()} rows
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={handleExportExcel}>
+                  Export .xlsx
+                </Button>
+                <Badge variant="secondary" className="font-mono">
+                  {config.mode} • {excelData.totalRows.toLocaleString()} rows
+                </Badge>
+              </div>
             </div>
 
             <div className="h-[calc(100vh-280px)]">

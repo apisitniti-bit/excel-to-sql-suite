@@ -43,6 +43,8 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
       id: `lookup_${Date.now()}`,
       sourceColumn: columns[0].name,
       targetColumn: `${columns[0].name}_lookup`,
+      targetCell: undefined,
+      allowOverwrite: false,
       sourceType: 'sheet',
       sheetLookup: {
         sheetName: defaultSheet,
@@ -144,6 +146,16 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
                       placeholder="target_column"
                       className="h-7 text-xs font-mono"
                     />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Target Cell (optional)</Label>
+                    <Input
+                      value={lookup.targetCell || ''}
+                      onChange={(e) => updateLookup(lookup.id, { targetCell: e.target.value.trim().toUpperCase() || undefined })}
+                      placeholder="G2"
+                      className="h-7 text-xs font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-1">Use A1 format (e.g. G2). Row must be &gt;= 2.</p>
                   </div>
                   <div>
                     <Label className="text-xs">Lookup Sheet</Label>
@@ -248,6 +260,13 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
                         onCheckedChange={(checked) => updateLookup(lookup.id, { trimKeys: !!checked })}
                       />
                       Trim Keys
+                    </Label>
+                    <Label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <Checkbox
+                        checked={lookup.allowOverwrite}
+                        onCheckedChange={(checked) => updateLookup(lookup.id, { allowOverwrite: !!checked })}
+                      />
+                      Allow Overwrite
                     </Label>
                   </div>
                 </div>

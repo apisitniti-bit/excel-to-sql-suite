@@ -18,6 +18,12 @@ export interface VLookupConfig {
   
   /** Output column name (defaults to sourceColumn if not specified) */
   targetColumn?: string;
+
+  /** Optional target cell (e.g. "G2") to write lookup results */
+  targetCell?: string;
+
+  /** Allow overwriting existing values at target cell column */
+  allowOverwrite?: boolean;
   
   /** Type of lookup source */
   sourceType: LookupSourceType;
@@ -93,7 +99,7 @@ export interface LookupStats {
 /** Lookup error with context */
 export interface LookupError {
   lookupId: string;
-  type: 'missing_sheet' | 'missing_column' | 'missing_key' | 'empty_result' | 'parse_error';
+  type: 'missing_sheet' | 'missing_column' | 'missing_key' | 'empty_result' | 'invalid_target_cell' | 'overwrite' | 'parse_error';
   message: string;
   /** Row index where error occurred (-1 for config errors) */
   row?: number;
