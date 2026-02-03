@@ -11,6 +11,18 @@ export type { ColumnMapping } from '@/core/types';
 export type { SqlConfig } from '@/core/types';
 export type { ValidationError } from '@/core/types';
 
+/**
+ * @deprecated Use ExcelSheet from @/core/types
+ */
+export interface ExcelData {
+  headers: string[];
+  rows: unknown[][];
+  totalRows: number;
+  fileName: string;
+  sheetName: string;
+  sheets: string[];
+}
+
 import type { SqlConfig as CoreSqlConfig, ColumnMapping as CoreColumnMapping, ValidationError as CoreValidationError } from '@/core/types';
 
 /**

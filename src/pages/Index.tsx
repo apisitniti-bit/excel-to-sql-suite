@@ -42,15 +42,26 @@ export default function Index() {
   const [errors, setErrors] = useState<ValidationError[]>([]);
 
   const handleFileSelect = useCallback(async (file: File) => {
+    console.log('[Index] File selected:', file.name, 'size:', file.size);
     setIsLoading(true);
     try {
       const data = await parseExcelFile(file);
+      console.log('[Index] Parsed data:', {
+        headers: data.headers.length,
+        rows: data.rows.length,
+        fileName: data.fileName
+      });
       setExcelData(data);
       
       const analyzedColumns = analyzeColumns(data);
+      console.log('[Index] Analyzed columns:', analyzedColumns.length);
       
       // Apply defaults: all columns TEXT, first column as PK
       const { columns: defaultedColumns, mappings: defaultMappings } = applyDefaults(data, analyzedColumns);
+      console.log('[Index] Defaults applied:', {
+        columns: defaultedColumns.length,
+        mappings: defaultMappings.length
+      });
       setColumns(defaultedColumns);
       setMappings(defaultMappings);
       
@@ -72,8 +83,8 @@ export default function Index() {
       setStep('mapping');
       toast.success(`Loaded ${data.totalRows.toLocaleString()} rows from ${data.fileName}`);
     } catch (error) {
-      toast.error('Failed to parse Excel file');
-      console.error(error);
+      console.error('[Index] Failed to parse Excel file:', error);
+      toast.error(`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsLoading(false);
     }

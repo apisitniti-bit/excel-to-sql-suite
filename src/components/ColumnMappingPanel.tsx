@@ -50,6 +50,33 @@ const TYPE_ICONS: Record<string, typeof Type> = {
 };
 
 export function ColumnMappingPanel({ columns, mappings, onMappingsChange }: ColumnMappingPanelProps) {
+  // Defensive checks
+  if (!columns || columns.length === 0) {
+    console.error('[ColumnMappingPanel] No columns provided');
+    return (
+      <div className="panel h-full flex flex-col">
+        <div className="panel-header">
+          <span className="text-red-500">Error: No columns detected</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!mappings || mappings.length === 0) {
+    console.error('[ColumnMappingPanel] No mappings provided');
+    return (
+      <div className="panel h-full flex flex-col">
+        <div className="panel-header">
+          <span className="text-red-500">Error: No mappings available</span>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('[ColumnMappingPanel] Rendering:', {
+    columnCount: columns.length,
+    mappingCount: mappings.length
+  });
   const updateMapping = (index: number, updates: Partial<ColumnMapping>) => {
     const newMappings = [...mappings];
     newMappings[index] = { ...newMappings[index], ...updates };

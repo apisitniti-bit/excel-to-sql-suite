@@ -14,10 +14,40 @@ const PAGE_SIZE = 50;
 export function DataPreview({ data }: DataPreviewProps) {
   const [page, setPage] = useState(0);
   
-  const totalPages = Math.ceil(data.rows.length / PAGE_SIZE);
+  // Defensive checks
+  if (!data) {
+    console.error('[DataPreview] No data provided');
+    return (
+      <div className="panel h-full flex flex-col">
+        <div className="panel-header">
+          <span className="text-red-500">Error: No data available</span>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!data.headers || data.headers.length === 0) {
+    console.error('[DataPreview] No headers in data');
+    return (
+      <div className="panel h-full flex flex-col">
+        <div className="panel-header">
+          <span className="text-red-500">Error: No columns found</span>
+        </div>
+      </div>
+    );
+  }
+  
+  const totalPages = Math.ceil((data.rows?.length || 0) / PAGE_SIZE);
   const startRow = page * PAGE_SIZE;
-  const endRow = Math.min(startRow + PAGE_SIZE, data.rows.length);
-  const visibleRows = data.rows.slice(startRow, endRow);
+  const endRow = Math.min(startRow + PAGE_SIZE, data.rows?.length || 0);
+  const visibleRows = data.rows?.slice(startRow, endRow) || [];
+
+  console.log('[DataPreview] Rendering:', {
+    headers: data.headers.length,
+    rows: data.rows?.length || 0,
+    page,
+    visibleRows: visibleRows.length
+  });
 
   return (
     <div className="panel h-full flex flex-col">

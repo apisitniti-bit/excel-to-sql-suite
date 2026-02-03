@@ -19,18 +19,49 @@ export async function parseExcelFile(file: File): Promise<{
   sheetName: string;
   sheets: string[];
 }> {
-  const arrayBuffer = await fileToArrayBuffer(file);
-  const parsed = await coreParseFile(arrayBuffer, { maxRows: 1000 });
-  const activeSheet = parsed.sheets.find(s => s.name === parsed.activeSheet) || parsed.sheets[0];
+  console.log('[parseExcelFile] Starting parse for:', file.name, 'size:', file.size);
   
-  return {
-    headers: activeSheet.headers,
-    rows: activeSheet.rows,
-    totalRows: activeSheet.rowCount,
-    fileName: file.name,
-    sheetName: activeSheet.name || 'Sheet1',
-    sheets: parsed.sheets.map(s => s.name),
-  };
+  try {
+    const arrayBuffer = await fileToArrayBuffer(file);
+    console.log('[parseExcelFile] File read successfully, bytes:', arrayBuffer.byteLength);
+    
+    const parsed = await coreParseFile(arrayBuffer, { maxRows: 1000 });
+    console.log('[parseExcelFile] Core parse complete:', {
+      fileName: parsed.fileName,
+      sheetCount: parsed.sheets.length,
+      activeSheet: parsed.activeSheet
+    });
+    
+    const activeSheet = parsed.sheets.find(s => s.name === parsed.activeSheet);
+    
+    if (!activeSheet) {
+      console.error('[parseExcelFile] Active sheet not found in parsed sheets');
+      throw new Error('Failed to parse active sheet');
+    }
+    
+    console.log('[parseExcelFile] Active sheet data:', {
+      name: activeSheet.name,
+      rowCount: activeSheet.rowCount,
+      headerCount: activeSheet.headers.length
+    });
+    
+    if (!activeSheet.headers || activeSheet.headers.length === 0) {
+      console.error('[parseExcelFile] No headers found in sheet');
+      throw new Error('No headers found in Excel file');
+    }
+    
+    return {
+      headers: activeSheet.headers,
+      rows: activeSheet.rows,
+      totalRows: activeSheet.rowCount,
+      fileName: file.name,
+      sheetName: activeSheet.name || 'Sheet1',
+      sheets: parsed.sheets.map(s => s.name),
+    };
+  } catch (error) {
+    console.error('[parseExcelFile] Parse failed:', error);
+    throw error;
+  }
 }
 
 /**
