@@ -17,6 +17,7 @@ import type { VLookupSet, VLookupConfig } from '@/core/types/vlookup';
 
 interface VLookupHelperProps {
   columns: ExcelColumn[];
+  activeSheet: string;
   sheetNames: string[];
   sheetData?: {
     name: string;
@@ -26,7 +27,7 @@ interface VLookupHelperProps {
   onLookupSetChange: (lookupSet: VLookupSet) => void;
 }
 
-export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLookupSetChange }: VLookupHelperProps) {
+export function VLookupHelper({ columns, activeSheet, sheetNames, sheetData, lookupSet, onLookupSetChange }: VLookupHelperProps) {
   const [selectedLookupId, setSelectedLookupId] = useState<string | null>(null);
 
   const updateLookupSet = (updates: Partial<VLookupSet>) => {
@@ -42,6 +43,7 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
     const newLookup: VLookupConfig = {
       id: `lookup_${Date.now()}`,
       sourceColumn: columns[0].name,
+      targetSheet: activeSheet,
       targetColumn: `${columns[0].name}_lookup`,
       targetCell: undefined,
       allowOverwrite: false,
@@ -100,7 +102,14 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
       ) : (
         <div className="space-y-3">
           {lookupMappings.map((lookup, idx) => {
-            const sheetHeaders = sheetData?.find(s => s.name === lookup.sheetLookup?.sheetName)?.headers || [];
+            const sourceSheetHeaders = sheetData?.find(s => s.name === lookup.sheetLookup?.sheetName)?.headers || [];
+            const targetSheetName = lookup.targetSheet || activeSheet;
+            const targetSheetHeaders = sheetData?.find(s => s.name === targetSheetName)?.headers || [];
+            const outputMode = lookup.targetCell ? 'cell' : 'column';
+            const targetColumnExists = lookup.targetColumn
+              ? targetSheetHeaders.some(h => h.toLowerCase().trim() === lookup.targetColumn?.toLowerCase().trim())
+              : false;
+            const targetColumnError = lookup.targetColumn && targetColumnExists && !lookup.allowOverwrite;
             return (
               <Card key={`${lookup.id}`} className="p-3">
                 <div className="flex items-start justify-between mb-3">
@@ -139,24 +148,82 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Target Column</Label>
-                    <Input
-                      value={lookup.targetColumn || ''}
-                      onChange={(e) => updateLookup(lookup.id, { targetColumn: e.target.value })}
-                      placeholder="target_column"
-                      className="h-7 text-xs font-mono"
-                    />
+                    <Label className="text-xs">Target Sheet</Label>
+                    <Select
+                      value={targetSheetName}
+                      onValueChange={(value) => updateLookup(lookup.id, { targetSheet: value })}
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Select target sheet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sheetNames.map((sheet) => (
+                          <SelectItem key={sheet} value={sheet} className="text-xs">
+                            {sheet}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div>
-                    <Label className="text-xs">Target Cell (optional)</Label>
-                    <Input
-                      value={lookup.targetCell || ''}
-                      onChange={(e) => updateLookup(lookup.id, { targetCell: e.target.value.trim().toUpperCase() || undefined })}
-                      placeholder="G2"
-                      className="h-7 text-xs font-mono"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-1">Use A1 format (e.g. G2). Row must be &gt;= 2.</p>
+                  <div className="flex items-center gap-2 text-xs">
+                    <Label className="text-xs">Output Location</Label>
+                    <Button
+                      size="sm"
+                      variant={outputMode === 'column' ? 'default' : 'outline'}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => updateLookup(lookup.id, { targetCell: undefined })}
+                    >
+                      Column
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={outputMode === 'cell' ? 'default' : 'outline'}
+                      className="h-7 px-2 text-xs"
+                      onClick={() => updateLookup(lookup.id, { targetCell: 'A2' })}
+                    >
+                      Cell
+                    </Button>
                   </div>
+                  {outputMode === 'column' ? (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Target Column</Label>
+                      <Select
+                        value={lookup.targetColumn || ''}
+                        onValueChange={(value) => updateLookup(lookup.id, { targetColumn: value })}
+                      >
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue placeholder="Select column" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {targetSheetHeaders.map((header) => (
+                            <SelectItem key={header} value={header} className="text-xs">
+                              {header}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={lookup.targetColumn || ''}
+                        onChange={(e) => updateLookup(lookup.id, { targetColumn: e.target.value })}
+                        placeholder="Custom column name"
+                        className="h-7 text-xs font-mono"
+                      />
+                      {targetColumnError && (
+                        <p className="text-[10px] text-destructive">Column already exists. Enable Allow Overwrite to write into it.</p>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      <Label className="text-xs">Target Cell</Label>
+                      <Input
+                        value={lookup.targetCell || ''}
+                        onChange={(e) => updateLookup(lookup.id, { targetCell: e.target.value.trim().toUpperCase() || undefined })}
+                        placeholder="G2"
+                        className="h-7 text-xs font-mono"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">Use A1 format (e.g. G2). Row must be &gt;= 2.</p>
+                    </div>
+                  )}
                   <div>
                     <Label className="text-xs">Lookup Sheet</Label>
                     <Select
@@ -202,7 +269,7 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
                           <SelectValue placeholder="Key column" />
                         </SelectTrigger>
                         <SelectContent>
-                          {sheetHeaders.map((header) => (
+                          {sourceSheetHeaders.map((header) => (
                             <SelectItem key={header} value={header} className="text-xs">
                               {header}
                             </SelectItem>
@@ -228,7 +295,7 @@ export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLoo
                           <SelectValue placeholder="Value column" />
                         </SelectTrigger>
                         <SelectContent>
-                          {sheetHeaders.map((header) => (
+                          {sourceSheetHeaders.map((header) => (
                             <SelectItem key={header} value={header} className="text-xs">
                               {header}
                             </SelectItem>

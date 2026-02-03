@@ -15,6 +15,9 @@ export interface VLookupConfig {
   
   /** Column in main data that contains lookup keys */
   sourceColumn: string;
+
+  /** Sheet where lookup results should be written (defaults to active sheet) */
+  targetSheet?: string;
   
   /** Output column name (defaults to sourceColumn if not specified) */
   targetColumn?: string;

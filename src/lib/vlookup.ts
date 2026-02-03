@@ -52,3 +52,48 @@ export function applyVLookupToMultiSheet(
 
   return { result, context };
 }
+
+/**
+ * Apply VLOOKUPs to all target sheets (for preview/export).
+ */
+export function applyVLookupToSheets(
+  sheets: ExcelSheet[],
+  activeSheet: string,
+  lookupSet: VLookupSet,
+  options: VLookupApplyOptions = {}
+): { sheets: ExcelSheet[]; errors: VLookupResult['errors']; context: MultiSheetContext } {
+  const context = buildContextFromSheets(sheets, activeSheet);
+  const errors: VLookupResult['errors'] = [];
+
+  const updatedSheets = sheets.map(sheet => {
+    const targetLookups = lookupSet.lookups.filter(lookup => {
+      const targetSheet = lookup.targetSheet || activeSheet;
+      return targetSheet === sheet.name;
+    });
+
+    if (targetLookups.length === 0) {
+      return sheet;
+    }
+
+    const scopedSet: VLookupSet = {
+      ...lookupSet,
+      lookups: targetLookups,
+    };
+
+    const result = applyVLookups(sheet, scopedSet, context, {
+      failFast: options.failFast,
+      disabled: options.disabled,
+    });
+
+    errors.push(...result.errors);
+
+    return {
+      ...sheet,
+      headers: result.headers,
+      rows: result.rows,
+      rowCount: result.rows.length,
+    };
+  });
+
+  return { sheets: updatedSheets, errors, context };
+}

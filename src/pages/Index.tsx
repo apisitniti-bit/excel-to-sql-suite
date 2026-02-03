@@ -18,7 +18,7 @@ import { IconThemeToggle } from '@/components/IconThemeToggle';
 import { VLookupHelper } from '@/components/VLookupHelper';
 import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
 import { generateSQL } from '@/lib/sql-generator';
-import { applyVLookupToMultiSheet } from '@/lib/vlookup';
+import { applyVLookupToMultiSheet, applyVLookupToSheets } from '@/lib/vlookup';
 import { downloadExcel } from '@/lib/excel-export';
 import { applyDefaults, getDefaultSqlConfig, updateConfigWithPrimaryKey } from '@/lib/defaults';
 import { validateExcelData, hasValidationErrors } from '@/lib/validation';
@@ -53,31 +53,28 @@ export default function Index() {
     if (!lookupSet.enabled || lookupSet.lookups.length === 0) return excelData;
     if (!excelData.sheetData || excelData.sheetData.length === 0) return excelData;
 
-    const { result } = applyVLookupToMultiSheet(
+    const { sheets, errors } = applyVLookupToSheets(
       excelData.sheetData,
       excelData.sheetName,
       lookupSet,
       { failFast: true }
     );
 
-    if (result.errors.length > 0) {
-      setLookupErrors(result.errors.map(e => e.message));
+    if (errors.length > 0) {
+      setLookupErrors(errors.map(e => e.message));
     } else {
       setLookupErrors([]);
     }
 
-    const updatedSheetData = excelData.sheetData.map(sheet =>
-      sheet.name === excelData.sheetName
-        ? { ...sheet, headers: result.headers, rows: result.rows, rowCount: result.rows.length }
-        : sheet
-    );
+    const activeSheet = sheets.find(sheet => sheet.name === excelData.sheetName);
+    if (!activeSheet) return excelData;
 
     return {
       ...excelData,
-      headers: result.headers,
-      rows: result.rows,
-      totalRows: result.rows.length,
-      sheetData: updatedSheetData,
+      headers: activeSheet.headers,
+      rows: activeSheet.rows,
+      totalRows: activeSheet.rows.length,
+      sheetData: sheets,
     };
   }, [excelData, lookupSet]);
 
@@ -351,6 +348,7 @@ export default function Index() {
                 <div className="panel h-full flex flex-col">
                   <VLookupHelper
                     columns={columns}
+                    activeSheet={excelData.sheetName}
                     sheetNames={excelData.sheets}
                     sheetData={excelData.sheetData?.map(s => ({ name: s.name, headers: s.headers }))}
                     lookupSet={lookupSet}
@@ -366,6 +364,11 @@ export default function Index() {
                   mappings={mappings}
                   onConfigChange={setConfig}
                 />
+              </div>
+              <div className="lg:col-span-12 flex justify-end">
+                <Button variant="secondary" onClick={handleExportExcel}>
+                  Export .xlsx
+                </Button>
               </div>
             </div>
           </div>
@@ -383,14 +386,9 @@ export default function Index() {
                 <Badge variant="default">Step 3</Badge>
                 <span className="text-sm font-medium">Review & Export</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" size="sm" onClick={handleExportExcel}>
-                  Export .xlsx
-                </Button>
-                <Badge variant="secondary" className="font-mono">
-                  {config.mode} • {excelData.totalRows.toLocaleString()} rows
-                </Badge>
-              </div>
+              <Badge variant="secondary" className="font-mono">
+                {config.mode} • {excelData.totalRows.toLocaleString()} rows
+              </Badge>
             </div>
 
             <div className="h-[calc(100vh-280px)]">
