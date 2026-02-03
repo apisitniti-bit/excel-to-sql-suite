@@ -15,8 +15,10 @@ import { ColumnMappingPanel } from '@/components/ColumnMappingPanel';
 import { SqlConfigPanel } from '@/components/SqlConfigPanel';
 import { SqlPreview } from '@/components/SqlPreview';
 import { IconThemeToggle } from '@/components/IconThemeToggle';
+import { VLookupHelper } from '@/components/VLookupHelper';
 import { parseExcelFile, analyzeColumns } from '@/lib/excel-parser';
 import { generateSQL } from '@/lib/sql-generator';
+import { applyVLookupToMultiSheet } from '@/lib/vlookup';
 import { applyDefaults, getDefaultSqlConfig, updateConfigWithPrimaryKey } from '@/lib/defaults';
 import { validateExcelData, hasValidationErrors } from '@/lib/validation';
 import type { 
@@ -27,6 +29,8 @@ import type {
   SqlMode,
   ValidationError 
 } from '@/types/converter';
+import type { VLookupSet } from '@/core/types/vlookup';
+import { DEFAULT_VLOOKUP_SET } from '@/core/types/vlookup';
 import { toast } from 'sonner';
 
 const DEFAULT_CONFIG: SqlConfig = getDefaultSqlConfig('my_table');
@@ -40,6 +44,47 @@ export default function Index() {
   const [config, setConfig] = useState<SqlConfig>(DEFAULT_CONFIG);
   const [sql, setSql] = useState<string>('');
   const [errors, setErrors] = useState<ValidationError[]>([]);
+  const [lookupSet, setLookupSet] = useState<VLookupSet>(DEFAULT_VLOOKUP_SET);
+  const [lookupErrors, setLookupErrors] = useState<string[]>([]);
+
+  const previewData = useMemo(() => {
+    if (!excelData) return null;
+    if (!lookupSet.enabled || lookupSet.lookups.length === 0) return excelData;
+    if (!excelData.sheetData || excelData.sheetData.length === 0) return excelData;
+
+    const { result } = applyVLookupToMultiSheet(
+      excelData.sheetData,
+      excelData.sheetName,
+      lookupSet,
+      { failFast: true }
+    );
+
+    if (result.errors.length > 0) {
+      setLookupErrors(result.errors.map(e => e.message));
+    } else {
+      setLookupErrors([]);
+    }
+
+    const updatedSheetData = excelData.sheetData.map(sheet =>
+      sheet.name === excelData.sheetName
+        ? { ...sheet, headers: result.headers, rows: result.rows, rowCount: result.rows.length }
+        : sheet
+    );
+
+    return {
+      ...excelData,
+      headers: result.headers,
+      rows: result.rows,
+      totalRows: result.rows.length,
+      sheetData: updatedSheetData,
+    };
+  }, [excelData, lookupSet]);
+
+  useEffect(() => {
+    if (lookupErrors.length > 0) {
+      toast.error(`VLOOKUP error: ${lookupErrors[0]}`);
+    }
+  }, [lookupErrors]);
 
   const handleFileSelect = useCallback(async (file: File) => {
     console.log('[Index] File selected:', file.name, 'size:', file.size);
@@ -64,6 +109,8 @@ export default function Index() {
       });
       setColumns(defaultedColumns);
       setMappings(defaultMappings);
+      setLookupSet(DEFAULT_VLOOKUP_SET);
+      setLookupErrors([]);
       
       // Validate data (check for duplicate PKs, etc)
       const validationErrors = validateExcelData(data, defaultMappings);
@@ -101,6 +148,10 @@ export default function Index() {
 
   const handleGenerateSQL = useCallback(() => {
     if (!excelData) return;
+    if (lookupSet.previewOnly) {
+      toast.info('Preview-only mode enabled. Disable it to generate SQL.');
+      return;
+    }
     
     // Update config with primary key from mappings
     const updatedConfig = updateConfigWithPrimaryKey(config, mappings);
@@ -122,7 +173,23 @@ export default function Index() {
       return;
     }
     
-    const result = generateSQL(excelData, mappings, updatedConfig);
+    let dataForSql = excelData;
+    if (lookupSet.enabled && lookupSet.lookups.length > 0 && excelData.sheetData?.length) {
+      const { result } = applyVLookupToMultiSheet(
+        excelData.sheetData,
+        excelData.sheetName,
+        lookupSet,
+        { failFast: true }
+      );
+      dataForSql = {
+        ...excelData,
+        headers: result.headers,
+        rows: result.rows,
+        totalRows: result.rows.length,
+      };
+    }
+
+    const result = generateSQL(dataForSql, mappings, updatedConfig);
     setSql(result.sql);
     setErrors(result.errors);
     setStep('preview');
@@ -132,7 +199,7 @@ export default function Index() {
     } else {
       toast.warning(`Generated with ${result.errors.length} validation issues`);
     }
-  }, [excelData, mappings, config]);
+  }, [excelData, mappings, config, lookupSet]);
 
   const handleModeChange = (mode: SqlMode) => {
     setConfig(c => ({ ...c, mode }));
@@ -146,6 +213,8 @@ export default function Index() {
     setConfig(DEFAULT_CONFIG);
     setSql('');
     setErrors([]);
+    setLookupSet(DEFAULT_VLOOKUP_SET);
+    setLookupErrors([]);
   };
 
   return (
@@ -240,8 +309,8 @@ export default function Index() {
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[calc(100vh-280px)]">
               {/* Excel Preview */}
-              <div className="lg:col-span-5 h-full">
-                <DataPreview data={excelData} />
+              <div className="lg:col-span-4 h-full">
+                <DataPreview data={previewData || excelData} />
               </div>
               
               {/* Mapping Panel */}
@@ -252,9 +321,22 @@ export default function Index() {
                   onMappingsChange={setMappings}
                 />
               </div>
+
+              {/* VLOOKUP Panel */}
+              <div className="lg:col-span-4 h-full">
+                <div className="panel h-full flex flex-col">
+                  <VLookupHelper
+                    columns={columns}
+                    sheetNames={excelData.sheets}
+                    sheetData={excelData.sheetData?.map(s => ({ name: s.name, headers: s.headers }))}
+                    lookupSet={lookupSet}
+                    onLookupSetChange={setLookupSet}
+                  />
+                </div>
+              </div>
               
               {/* Config Panel */}
-              <div className="lg:col-span-3 h-full">
+              <div className="lg:col-span-12 h-full">
                 <SqlConfigPanel
                   config={config}
                   mappings={mappings}

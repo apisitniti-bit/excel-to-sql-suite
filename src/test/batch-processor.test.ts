@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BatchProcessor } from '../batch-processor';
+import { BatchProcessor } from '../lib/batch-processor';
 import type { ExcelData, ColumnMapping, SqlConfig } from '@/types/converter';
 
 describe('Batch Processor', () => {
@@ -65,7 +65,7 @@ describe('Batch Processor', () => {
         wrapInTransaction: true,
         onConflictAction: 'DO NOTHING',
       },
-    };
+    } as unknown as SqlConfig;
   });
 
   it('should split data into batches correctly', () => {

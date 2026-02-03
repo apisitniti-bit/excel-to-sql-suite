@@ -15,6 +15,15 @@ export {
   type ParseOptions,
 } from './excel/parser';
 
+// Multi-sheet parsing
+export {
+  parseMultiSheet,
+  parseAllSheets,
+  getSheetNamesQuick,
+  buildContextFromSheets,
+  type MultiSheetParseOptions,
+} from './excel/multi-sheet';
+
 // Schema inference
 export {
   inferColumnType,
@@ -46,3 +55,17 @@ export {
   calculateQualityScore,
   type ValidateOptions,
 } from './validate';
+
+// VLOOKUP engine
+export {
+  applyVLookups,
+  type VLookupOptions,
+} from './vlookup/engine';
+
+// Preview
+export {
+  buildPreviewData,
+  buildMultiSheetPreview,
+  analyzeColumnsForPreview,
+  type PreviewOptions,
+} from './preview';

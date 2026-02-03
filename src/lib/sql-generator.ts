@@ -21,6 +21,18 @@ export function generateSQL(
   mappings: ColumnMapping[],
   config: SqlConfig
 ): { sql: string; errors: ValidationError[] } {
+  const legacyOptions = (config as SqlConfig & { options?: Partial<SqlConfig> & { batchSize?: number; wrapInTransaction?: boolean; onConflictAction?: 'DO NOTHING' | 'DO UPDATE' } }).options;
+  const batchSize = config.batchSize ?? legacyOptions?.batchSize ?? 1000;
+  const wrapInTransaction = config.wrapInTransaction ?? legacyOptions?.wrapInTransaction ?? true;
+  const onConflictAction = config.onConflictAction ?? legacyOptions?.onConflictAction ?? 'DO UPDATE';
+  const primaryKeyFromMappings = mappings
+    .filter(m => m.isPrimaryKey)
+    .map(m => m.pgColumn)
+    .filter(Boolean);
+  const conflictKeys = config.conflictKeys?.length
+    ? config.conflictKeys
+    : (config.primaryKey?.length ? config.primaryKey : primaryKeyFromMappings);
+
   const result = coreGenerateSQL(
     config.tableName,
     mappings,
@@ -29,10 +41,10 @@ export function generateSQL(
       tableName: config.tableName,
       mode: config.mode,
       primaryKey: config.primaryKey,
-      conflictKeys: config.conflictKeys,
-      batchSize: config.batchSize || 1000,
-      wrapInTransaction: config.wrapInTransaction ?? true,
-      onConflictAction: config.onConflictAction,
+      conflictKeys,
+      batchSize,
+      wrapInTransaction,
+      onConflictAction,
     },
     {
       includeComments: true,

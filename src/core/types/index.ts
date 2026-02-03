@@ -88,11 +88,6 @@ export interface ColumnMapping {
   isNullable: boolean;
   isUnique: boolean;
   defaultValue?: string;
-  // VLOOKUP feature fields (optional)
-  useLookup?: boolean;
-  lookupSourceColumn?: string;
-  lookupTargetValue?: string;
-  lookupDefaultValue?: string;
 }
 
 export interface SqlConfig {
@@ -134,3 +129,6 @@ export interface TypeRule {
   test: (value: string) => boolean;
   priority: number;
 }
+
+// VLOOKUP types
+export * from './vlookup';

@@ -1,4 +1,4 @@
-import { ArrowRight, Link2, Unlink, Key, Hash, Type, Search } from 'lucide-react';
+import { ArrowRight, Link2, Unlink, Key, Hash, Type } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -209,69 +209,6 @@ export function ColumnMappingPanel({ columns, mappings, onMappingsChange }: Colu
                       />
                       Unique
                     </Label>
-                  </div>
-
-                  {/* VLOOKUP Configuration */}
-                  <div className="pt-2 border-t">
-                    <Label className="flex items-center gap-2 text-xs cursor-pointer mb-2">
-                      <Search className="w-3 h-3" />
-                      <Checkbox
-                        checked={mapping?.useLookup}
-                        onCheckedChange={(checked) => updateMapping(index, { useLookup: !!checked })}
-                      />
-                      Use VLOOKUP
-                    </Label>
-
-                    {mapping?.useLookup && (
-                      <div className="space-y-2 ml-5">
-                        <div>
-                          <Label htmlFor={`lookup-col-${index}`} className="text-xs text-muted-foreground">
-                            Lookup Column
-                          </Label>
-                          <Select
-                            value={mapping?.lookupSourceColumn || ''}
-                            onValueChange={(value) => updateMapping(index, { lookupSourceColumn: value })}
-                          >
-                            <SelectTrigger id={`lookup-col-${index}`} className="h-7 text-xs">
-                              <SelectValue placeholder="Select lookup source" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {columns.map((c) => (
-                                <SelectItem key={c.name} value={c.name} className="text-xs">
-                                  {c.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div>
-                          <Label htmlFor={`lookup-map-${index}`} className="text-xs text-muted-foreground">
-                            Map To Value
-                          </Label>
-                          <Input
-                            id={`lookup-map-${index}`}
-                            placeholder="lookup_value"
-                            className="font-mono text-xs h-7"
-                            value={mapping?.lookupTargetValue || ''}
-                            onChange={(e) => updateMapping(index, { lookupTargetValue: e.target.value })}
-                          />
-                        </div>
-
-                        <div>
-                          <Label htmlFor={`lookup-default-${index}`} className="text-xs text-muted-foreground">
-                            Default Value
-                          </Label>
-                          <Input
-                            id={`lookup-default-${index}`}
-                            placeholder="default_value"
-                            className="font-mono text-xs h-7"
-                            value={mapping?.lookupDefaultValue || ''}
-                            onChange={(e) => updateMapping(index, { lookupDefaultValue: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

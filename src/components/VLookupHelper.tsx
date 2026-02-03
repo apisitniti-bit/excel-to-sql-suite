@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Settings, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Settings, AlertCircle, CheckCircle, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,48 +12,71 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import type { ExcelColumn, ColumnMapping } from '@/types/converter';
+import type { ExcelColumn } from '@/types/converter';
+import type { VLookupSet, VLookupConfig } from '@/core/types/vlookup';
 
 interface VLookupHelperProps {
   columns: ExcelColumn[];
-  mappings: ColumnMapping[];
-  onMappingsChange: (mappings: ColumnMapping[]) => void;
+  sheetNames: string[];
+  sheetData?: {
+    name: string;
+    headers: string[];
+  }[];
+  lookupSet: VLookupSet;
+  onLookupSetChange: (lookupSet: VLookupSet) => void;
 }
 
-export function VLookupHelper({ columns, mappings, onMappingsChange }: VLookupHelperProps) {
-  const [selectedColumn, setSelectedColumn] = useState<number | null>(null);
-  const [lookupData, setLookupData] = useState<Record<string, string>>({});
+export function VLookupHelper({ columns, sheetNames, sheetData, lookupSet, onLookupSetChange }: VLookupHelperProps) {
+  const [selectedLookupId, setSelectedLookupId] = useState<string | null>(null);
 
-  const handleAddLookup = (index: number) => {
-    const newMappings = [...mappings];
-    if (!newMappings[index]) return;
-
-    newMappings[index] = {
-      ...newMappings[index],
-      useLookup: true,
-      lookupSourceColumn: columns[0]?.name,
-      lookupTargetValue: 'value',
-      lookupDefaultValue: 'N/A',
-    };
-    onMappingsChange(newMappings);
-    setSelectedColumn(index);
+  const updateLookupSet = (updates: Partial<VLookupSet>) => {
+    onLookupSetChange({ ...lookupSet, ...updates });
   };
 
-  const handleRemoveLookup = (index: number) => {
-    const newMappings = [...mappings];
-    if (!newMappings[index]) return;
+  const handleAddLookup = () => {
+    if (!columns.length || !sheetNames.length) return;
 
-    newMappings[index] = {
-      ...newMappings[index],
-      useLookup: false,
-      lookupSourceColumn: undefined,
-      lookupTargetValue: undefined,
-      lookupDefaultValue: undefined,
+    const defaultSheet = sheetNames[0];
+    const defaultSheetHeaders = sheetData?.find(s => s.name === defaultSheet)?.headers || [];
+
+    const newLookup: VLookupConfig = {
+      id: `lookup_${Date.now()}`,
+      sourceColumn: columns[0].name,
+      targetColumn: `${columns[0].name}_lookup`,
+      sourceType: 'sheet',
+      sheetLookup: {
+        sheetName: defaultSheet,
+        keyColumn: defaultSheetHeaders[0] || '',
+        valueColumn: defaultSheetHeaders[1] || defaultSheetHeaders[0] || '',
+      },
+      defaultValue: null,
+      caseSensitive: false,
+      trimKeys: true,
     };
-    onMappingsChange(newMappings);
+
+    updateLookupSet({
+      enabled: true,
+      lookups: [...lookupSet.lookups, newLookup],
+    });
+    setSelectedLookupId(newLookup.id);
   };
 
-  const lookupMappings = mappings.filter(m => m.useLookup);
+  const handleRemoveLookup = (lookupId: string) => {
+    const remaining = lookupSet.lookups.filter(l => l.id !== lookupId);
+    updateLookupSet({
+      lookups: remaining,
+      enabled: remaining.length > 0 && lookupSet.enabled,
+    });
+  };
+
+  const updateLookup = (lookupId: string, updates: Partial<VLookupConfig>) => {
+    const updated = lookupSet.lookups.map(lookup =>
+      lookup.id === lookupId ? { ...lookup, ...updates } : lookup
+    );
+    updateLookupSet({ lookups: updated });
+  };
+
+  const lookupMappings = lookupSet.lookups;
 
   return (
     <div className="space-y-4 p-4">
@@ -65,26 +88,31 @@ export function VLookupHelper({ columns, mappings, onMappingsChange }: VLookupHe
       {lookupMappings.length === 0 ? (
         <Card className="p-4 bg-muted/50 border-dashed">
           <p className="text-xs text-muted-foreground">
-            No lookup columns configured. Click the VLOOKUP checkbox in Column Mapping to add one.
+            No VLOOKUP rules configured. Add one to map across sheets.
           </p>
+          <Button onClick={handleAddLookup} size="sm" className="mt-3">
+            <Plus className="w-4 h-4 mr-2" />
+            Add VLOOKUP
+          </Button>
         </Card>
       ) : (
         <div className="space-y-3">
-          {lookupMappings.map((mapping, idx) => {
-            const originalIndex = mappings.indexOf(mapping);
+          {lookupMappings.map((lookup, idx) => {
+            const sheetHeaders = sheetData?.find(s => s.name === lookup.sheetLookup?.sheetName)?.headers || [];
             return (
-              <Card key={`${mapping.excelColumn}-${idx}`} className="p-3">
+              <Card key={`${lookup.id}`} className="p-3">
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <h4 className="text-xs font-semibold">{mapping.excelColumn}</h4>
-                    <p className="text-xs text-muted-foreground">→ {mapping.pgColumn}</p>
+                    <h4 className="text-xs font-semibold">{lookup.sourceColumn}</h4>
+                    <p className="text-xs text-muted-foreground">→ {lookup.targetColumn || lookup.sourceColumn}</p>
                   </div>
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => handleRemoveLookup(originalIndex)}
+                    onClick={() => handleRemoveLookup(lookup.id)}
                     className="text-xs h-7"
                   >
+                    <Trash2 className="w-3 h-3 mr-1" />
                     Remove
                   </Button>
                 </div>
@@ -92,26 +120,144 @@ export function VLookupHelper({ columns, mappings, onMappingsChange }: VLookupHe
                 <div className="space-y-2">
                   <div>
                     <Label className="text-xs">Source Column</Label>
-                    <p className="text-xs font-mono text-muted-foreground">
-                      {mapping.lookupSourceColumn}
-                    </p>
+                    <Select
+                      value={lookup.sourceColumn}
+                      onValueChange={(value) => updateLookup(lookup.id, { sourceColumn: value })}
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Select source column" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {columns.map((c) => (
+                          <SelectItem key={c.name} value={c.name} className="text-xs">
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Maps To</Label>
-                    <p className="text-xs font-mono text-muted-foreground">
-                      {mapping.lookupTargetValue}
-                    </p>
+                    <Label className="text-xs">Target Column</Label>
+                    <Input
+                      value={lookup.targetColumn || ''}
+                      onChange={(e) => updateLookup(lookup.id, { targetColumn: e.target.value })}
+                      placeholder="target_column"
+                      className="h-7 text-xs font-mono"
+                    />
                   </div>
                   <div>
-                    <Label className="text-xs">Default</Label>
-                    <p className="text-xs font-mono text-muted-foreground">
-                      {mapping.lookupDefaultValue}
-                    </p>
+                    <Label className="text-xs">Lookup Sheet</Label>
+                    <Select
+                      value={lookup.sheetLookup?.sheetName || ''}
+                      onValueChange={(value) =>
+                        updateLookup(lookup.id, {
+                          sheetLookup: {
+                            sheetName: value,
+                            keyColumn: sheetData?.find(s => s.name === value)?.headers?.[0] || '',
+                            valueColumn: sheetData?.find(s => s.name === value)?.headers?.[1] || '',
+                          },
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue placeholder="Select sheet" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sheetNames.map((sheet) => (
+                          <SelectItem key={sheet} value={sheet} className="text-xs">
+                            {sheet}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Key Column</Label>
+                      <Select
+                        value={lookup.sheetLookup?.keyColumn || ''}
+                        onValueChange={(value) =>
+                          updateLookup(lookup.id, {
+                            sheetLookup: {
+                              sheetName: lookup.sheetLookup?.sheetName || sheetNames[0] || '',
+                              keyColumn: value,
+                              valueColumn: lookup.sheetLookup?.valueColumn || '',
+                            },
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue placeholder="Key column" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sheetHeaders.map((header) => (
+                            <SelectItem key={header} value={header} className="text-xs">
+                              {header}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Value Column</Label>
+                      <Select
+                        value={lookup.sheetLookup?.valueColumn || ''}
+                        onValueChange={(value) =>
+                          updateLookup(lookup.id, {
+                            sheetLookup: {
+                              sheetName: lookup.sheetLookup?.sheetName || sheetNames[0] || '',
+                              keyColumn: lookup.sheetLookup?.keyColumn || '',
+                              valueColumn: value,
+                            },
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-7 text-xs">
+                          <SelectValue placeholder="Value column" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sheetHeaders.map((header) => (
+                            <SelectItem key={header} value={header} className="text-xs">
+                              {header}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Default Value</Label>
+                    <Input
+                      value={lookup.defaultValue ?? ''}
+                      onChange={(e) => updateLookup(lookup.id, { defaultValue: e.target.value || null })}
+                      placeholder="default_value"
+                      className="h-7 text-xs font-mono"
+                    />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <Label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <Checkbox
+                        checked={lookup.caseSensitive}
+                        onCheckedChange={(checked) => updateLookup(lookup.id, { caseSensitive: !!checked })}
+                      />
+                      Case Sensitive
+                    </Label>
+                    <Label className="flex items-center gap-2 text-xs cursor-pointer">
+                      <Checkbox
+                        checked={lookup.trimKeys}
+                        onCheckedChange={(checked) => updateLookup(lookup.id, { trimKeys: !!checked })}
+                      />
+                      Trim Keys
+                    </Label>
                   </div>
                 </div>
               </Card>
             );
           })}
+          <Button onClick={handleAddLookup} size="sm" variant="outline">
+            <Plus className="w-4 h-4 mr-2" />
+            Add VLOOKUP
+          </Button>
         </div>
       )}
 
@@ -123,10 +269,10 @@ export function VLookupHelper({ columns, mappings, onMappingsChange }: VLookupHe
             <p className="font-semibold text-blue-900 dark:text-blue-300">How to Add a VLOOKUP:</p>
             <ol className="list-decimal list-inside space-y-0.5 text-blue-800 dark:text-blue-200">
               <li>Go to <strong>Column Mapping</strong></li>
-              <li>Click a column to enable it</li>
-              <li>Check the <strong>Use VLOOKUP</strong> checkbox</li>
-              <li>Select the lookup source column</li>
-              <li>Specify the target value and defaults</li>
+              <li>Click <strong>Add VLOOKUP</strong></li>
+              <li>Select the source column from your main sheet</li>
+              <li>Choose the lookup sheet + key/value columns</li>
+              <li>Set target column and defaults</li>
             </ol>
           </div>
         </div>
@@ -157,14 +303,14 @@ export function VLookupHelper({ columns, mappings, onMappingsChange }: VLookupHe
         <Card className="p-3 border-primary/20 bg-primary/5">
           <Label className="text-xs font-semibold mb-2 block">Test VLOOKUP</Label>
           <div className="space-y-2">
-            <Select value={selectedColumn?.toString() || ''}>
+            <Select value={selectedLookupId || ''} onValueChange={setSelectedLookupId}>
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select column to test" />
               </SelectTrigger>
               <SelectContent>
-                {lookupMappings.map((m, idx) => (
-                  <SelectItem key={idx} value={idx.toString()} className="text-xs">
-                    {m.pgColumn}
+                {lookupMappings.map((m) => (
+                  <SelectItem key={m.id} value={m.id} className="text-xs">
+                    {m.targetColumn || m.sourceColumn}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -178,10 +324,27 @@ export function VLookupHelper({ columns, mappings, onMappingsChange }: VLookupHe
               />
             </div>
 
-            <Button className="w-full h-8 text-xs">Test Lookup</Button>
+            <Button className="w-full h-8 text-xs" variant="outline">Test Lookup</Button>
           </div>
         </Card>
       )}
+
+      <Card className="p-3 bg-muted/40">
+        <div className="flex items-center justify-between">
+          <Label className="text-xs font-semibold">Enable VLOOKUP</Label>
+          <Checkbox
+            checked={lookupSet.enabled}
+            onCheckedChange={(checked) => updateLookupSet({ enabled: !!checked })}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <Label className="text-xs text-muted-foreground">Preview-only mode</Label>
+          <Checkbox
+            checked={lookupSet.previewOnly}
+            onCheckedChange={(checked) => updateLookupSet({ previewOnly: !!checked })}
+          />
+        </div>
+      </Card>
     </div>
   );
 }

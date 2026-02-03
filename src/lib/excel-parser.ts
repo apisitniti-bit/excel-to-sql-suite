@@ -4,7 +4,7 @@
  * @deprecated UI should migrate to @/core directly
  */
 
-import { parseExcelFile as coreParseFile, parseSheet } from '@/core/excel/parser';
+import { parseMultiSheet } from '@/core/excel/multi-sheet';
 import { analyzeColumns as coreAnalyzeColumns, inferSchema } from '@/core/schema/inference';
 import type { ExcelSheet, ColumnAnalysis } from '@/core/types';
 
@@ -18,6 +18,12 @@ export async function parseExcelFile(file: File): Promise<{
   fileName: string;
   sheetName: string;
   sheets: string[];
+  sheetData?: {
+    name: string;
+    headers: string[];
+    rows: unknown[][];
+    rowCount: number;
+  }[];
 }> {
   console.log('[parseExcelFile] Starting parse for:', file.name, 'size:', file.size);
   
@@ -25,7 +31,8 @@ export async function parseExcelFile(file: File): Promise<{
     const arrayBuffer = await fileToArrayBuffer(file);
     console.log('[parseExcelFile] File read successfully, bytes:', arrayBuffer.byteLength);
     
-    const parsed = await coreParseFile(arrayBuffer, { maxRows: 1000 });
+    // Parse all sheets for cross-sheet VLOOKUP support
+    const parsed = await parseMultiSheet(arrayBuffer, { maxRows: 1000, parseAllSheets: true });
     console.log('[parseExcelFile] Core parse complete:', {
       fileName: parsed.fileName,
       sheetCount: parsed.sheets.length,
@@ -57,6 +64,12 @@ export async function parseExcelFile(file: File): Promise<{
       fileName: file.name,
       sheetName: activeSheet.name || 'Sheet1',
       sheets: parsed.sheets.map(s => s.name),
+      sheetData: parsed.sheets.map(s => ({
+        name: s.name,
+        headers: s.headers,
+        rows: s.rows,
+        rowCount: s.rowCount,
+      })),
     };
   } catch (error) {
     console.error('[parseExcelFile] Parse failed:', error);

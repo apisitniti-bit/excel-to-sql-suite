@@ -7,7 +7,7 @@ import {
   exportErrorsAsCSV,
   exportErrorsAsJSON,
   getErrorSummary,
-} from '../error-reporter';
+} from '../lib/error-reporter';
 import type { ValidationError } from '@/types/converter';
 
 describe('Error Reporter', () => {
@@ -18,30 +18,35 @@ describe('Error Reporter', () => {
       {
         row: 2,
         column: 'email',
+        value: 'invalid-email',
         message: 'Type Mismatch: Column "email" expects TEXT but found invalid value at rows: 2',
         severity: 'warning',
       },
       {
         row: 4,
         column: 'age',
+        value: null,
         message: 'Column "age" (NOT NULL) has 1 empty value(s) at rows: 4',
         severity: 'error',
       },
       {
         row: 0,
         column: 'id',
+        value: '1',
         message: 'Duplicated Key - Found 3 duplicate Primary Key value(s)',
         severity: 'error',
       },
       {
         row: 5,
         column: 'status',
+        value: 'active',
         message: 'Unique Constraint Violation: Column "status" has 2 duplicate value(s)',
         severity: 'error',
       },
       {
         row: 10,
         column: 'department_id',
+        value: 'D-99',
         message: 'Foreign Key Violation: Column "department_id" has 1 reference(s) not found',
         severity: 'error',
       },
@@ -169,8 +174,9 @@ describe('Error Reporter', () => {
       {
         row: 20,
         column: 'email',
+        value: 'invalid-email',
         message: 'Type Mismatch: Column "email" expects TEXT but found invalid value',
-        severity: 'warning',
+        severity: 'warning' as const,
       },
     ];
 
@@ -192,6 +198,7 @@ describe('Error Reporter', () => {
       {
         row: 1,
         column: 'text',
+        value: 'Error with "quotes" and, commas',
         message: 'Error with "quotes" and, commas',
         severity: 'error',
       },
@@ -210,6 +217,7 @@ describe('Error Reporter', () => {
     const dbError: ValidationError = {
       row: 1,
       column: '',
+      value: null,
       message: 'Database connection timeout',
       severity: 'error',
     };

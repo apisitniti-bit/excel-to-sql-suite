@@ -3,8 +3,9 @@ import {
   registerValidationRule,
   validateWithCustomRules,
   detectConstraints,
-} from '../advanced-validation';
-import type { ExcelData, ColumnMapping, ValidationRule } from '@/types/converter';
+} from '../lib/advanced-validation';
+import type { ExcelData, ColumnMapping } from '@/types/converter';
+import type { ValidationRule } from '../lib/advanced-validation';
 
 describe('Advanced Validation Engine', () => {
   let testData: ExcelData;

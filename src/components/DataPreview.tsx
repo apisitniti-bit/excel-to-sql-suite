@@ -1,7 +1,13 @@
-import { useMemo } from 'react';
 import { FileSpreadsheet, Table, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { ExcelData } from '@/types/converter';
 import { useState } from 'react';
 
@@ -13,6 +19,7 @@ const PAGE_SIZE = 50;
 
 export function DataPreview({ data }: DataPreviewProps) {
   const [page, setPage] = useState(0);
+  const [activeSheet, setActiveSheet] = useState<string>(data.sheetName || data.sheets?.[0]);
   
   // Defensive checks
   if (!data) {
@@ -37,14 +44,20 @@ export function DataPreview({ data }: DataPreviewProps) {
     );
   }
   
-  const totalPages = Math.ceil((data.rows?.length || 0) / PAGE_SIZE);
+  const availableSheets = data.sheetData?.length ? data.sheetData.map(s => s.name) : data.sheets;
+  const currentSheet = data.sheetData?.find(s => s.name === activeSheet);
+  const headers = currentSheet?.headers ?? data.headers;
+  const rows = currentSheet?.rows ?? data.rows;
+  const totalRows = currentSheet?.rowCount ?? data.totalRows;
+
+  const totalPages = Math.ceil((rows?.length || 0) / PAGE_SIZE);
   const startRow = page * PAGE_SIZE;
-  const endRow = Math.min(startRow + PAGE_SIZE, data.rows?.length || 0);
-  const visibleRows = data.rows?.slice(startRow, endRow) || [];
+  const endRow = Math.min(startRow + PAGE_SIZE, rows?.length || 0);
+  const visibleRows = rows?.slice(startRow, endRow) || [];
 
   console.log('[DataPreview] Rendering:', {
-    headers: data.headers.length,
-    rows: data.rows?.length || 0,
+    headers: headers.length,
+    rows: rows?.length || 0,
     page,
     visibleRows: visibleRows.length
   });
@@ -60,10 +73,27 @@ export function DataPreview({ data }: DataPreviewProps) {
           </Badge>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          {availableSheets?.length > 1 && (
+            <Select value={activeSheet} onValueChange={(value) => {
+              setActiveSheet(value);
+              setPage(0);
+            }}>
+              <SelectTrigger className="h-7 w-40 text-xs">
+                <SelectValue placeholder="Select sheet" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableSheets.map(sheet => (
+                  <SelectItem key={sheet} value={sheet} className="text-xs">
+                    {sheet}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Table className="w-3 h-3" />
-          <span>{data.totalRows.toLocaleString()} rows</span>
+          <span>{totalRows.toLocaleString()} rows</span>
           <span>•</span>
-          <span>{data.headers.length} columns</span>
+          <span>{headers.length} columns</span>
         </div>
       </div>
       
@@ -72,7 +102,7 @@ export function DataPreview({ data }: DataPreviewProps) {
           <thead>
             <tr className="data-header">
               <th className="data-cell text-left w-12 text-muted-foreground">#</th>
-              {data.headers.map((header, i) => (
+              {headers.map((header, i) => (
                 <th key={i} className="data-cell text-left" title={header}>
                   {header}
                 </th>
@@ -85,7 +115,7 @@ export function DataPreview({ data }: DataPreviewProps) {
                 <td className="data-cell text-muted-foreground">
                   {startRow + rowIndex + 1}
                 </td>
-                {data.headers.map((_, colIndex) => (
+                {headers.map((_, colIndex) => (
                   <td 
                     key={colIndex} 
                     className="data-cell"
@@ -105,7 +135,7 @@ export function DataPreview({ data }: DataPreviewProps) {
       {totalPages > 1 && (
         <div className="border-t p-2 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
-            Showing {startRow + 1}-{endRow} of {data.rows.length}
+            Showing {startRow + 1}-{endRow} of {rows.length}
           </span>
           <div className="flex items-center gap-1">
             <Button

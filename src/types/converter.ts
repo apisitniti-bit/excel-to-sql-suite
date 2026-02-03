@@ -10,6 +10,7 @@ export type { ExcelColumn } from '@/core/types';
 export type { ColumnMapping } from '@/core/types';
 export type { SqlConfig } from '@/core/types';
 export type { ValidationError } from '@/core/types';
+export type { VLookupSet } from '@/core/types/vlookup';
 
 /**
  * @deprecated Use ExcelSheet from @/core/types
@@ -21,6 +22,13 @@ export interface ExcelData {
   fileName: string;
   sheetName: string;
   sheets: string[];
+  /** Optional full sheet data for multi-sheet preview/VLOOKUP */
+  sheetData?: {
+    name: string;
+    headers: string[];
+    rows: unknown[][];
+    rowCount: number;
+  }[];
 }
 
 import type { SqlConfig as CoreSqlConfig, ColumnMapping as CoreColumnMapping, ValidationError as CoreValidationError } from '@/core/types';
