@@ -82,14 +82,17 @@ export async function parseExcelFile(
 
   const fileName = file instanceof File ? file.name : 'untitled.xlsx';
 
+  // Build sheets array with parsed data for active sheet
+  const sheets: ExcelSheet[] = workbook.SheetNames.map(name => ({
+    name,
+    rowCount: name === sheetName ? dataRows.length : 0,
+    headers: name === sheetName ? headers : [],
+    rows: name === sheetName ? dataRows : [],
+  }));
+
   return {
     fileName,
-    sheets: workbook.SheetNames.map(name => ({
-      name,
-      rowCount: 0, // Would need to parse each sheet
-      headers: [],
-      rows: [],
-    })),
+    sheets,
     activeSheet: sheetName,
   };
 }
