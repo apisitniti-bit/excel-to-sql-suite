@@ -62,6 +62,7 @@ function applyTextFormatting(worksheet: XLSX.WorkSheet): void {
       const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
       const cell = worksheet[cellAddress];
       if (!cell) continue;
+      const fill = resolveRowFill(row);
       cell.t = 's';
       cell.z = '@';
       cell.s = {
@@ -69,7 +70,34 @@ function applyTextFormatting(worksheet: XLSX.WorkSheet): void {
           name: 'Arial',
           sz: 10,
         },
+        ...(fill ? { fill } : {}),
       };
     }
   }
+}
+
+type CellFill = {
+  patternType: 'solid';
+  fgColor: { rgb: string };
+  bgColor: { rgb: string };
+};
+
+function resolveRowFill(rowIndex: number): CellFill | undefined {
+  if (rowIndex === 0) {
+    return {
+      patternType: 'solid',
+      fgColor: { rgb: 'D0D0D0' },
+      bgColor: { rgb: 'D0D0D0' },
+    };
+  }
+
+  if (rowIndex >= 2 && rowIndex % 2 === 0) {
+    return {
+      patternType: 'solid',
+      fgColor: { rgb: 'CCFFCC' },
+      bgColor: { rgb: 'CCFFCC' },
+    };
+  }
+
+  return undefined;
 }
